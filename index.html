@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Krisis | Real-World ML Validation</title>
+    <!-- Keeping Tailwind CDN for intact styling parity -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-secondary": "#233143",
+                        "on-secondary-fixed-variant": "#39485a",
+                        "primary-fixed-dim": "#c0c1ff",
+                        "on-tertiary-fixed-variant": "#004e5c",
+                        "surface": "#0b1326",
+                        "tertiary-fixed": "#acedff",
+                        "on-error-container": "#ffdad6",
+                        "background": "#0b1326",
+                        "on-background": "#dae2fd",
+                        "on-primary": "#1000a9",
+                        "secondary-container": "#39485a",
+                        "surface-bright": "#31394d",
+                        "on-secondary-container": "#a7b6cc",
+                        "surface-container-high": "#222a3d",
+                        "surface-dim": "#0b1326",
+                        "surface-container-highest": "#2d3449",
+                        "surface-variant": "#2d3449",
+                        "on-secondary-fixed": "#0d1c2d",
+                        "error-container": "#93000a",
+                        "on-tertiary-fixed": "#001f26",
+                        "tertiary": "#4cd7f6",
+                        "secondary": "#b9c8de",
+                        "on-error": "#690005",
+                        "surface-container-low": "#131b2e",
+                        "on-primary-container": "#0d0096",
+                        "error": "#ffb4ab",
+                        "tertiary-container": "#009eb9",
+                        "on-surface": "#dae2fd",
+                        "secondary-fixed-dim": "#b9c8de",
+                        "outline": "#908fa0",
+                        "on-tertiary-container": "#002f38",
+                        "surface-tint": "#c0c1ff",
+                        "inverse-primary": "#494bd6",
+                        "primary-fixed": "#e1e0ff",
+                        "on-tertiary": "#003640",
+                        "secondary-fixed": "#d4e4fa",
+                        "surface-container-lowest": "#060e20",
+                        "inverse-on-surface": "#283044",
+                        "primary": "#c0c1ff",
+                        "outline-variant": "#464554",
+                        "on-primary-fixed": "#07006c",
+                        "tertiary-fixed-dim": "#4cd7f6",
+                        "primary-container": "#8083ff",
+                        "on-primary-fixed-variant": "#2f2ebe",
+                        "on-surface-variant": "#c7c4d7",
+                        "inverse-surface": "#dae2fd",
+                        "surface-container": "#171f33"
+                    },
+                    fontFamily: {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    },
+                    borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+                },
+            },
+        }
+    </script>
+</head>
+<body class="antialiased">
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+</body>
+</html>
