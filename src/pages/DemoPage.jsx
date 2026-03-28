@@ -1,28 +1,60 @@
 import { useEffect, useState } from 'react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 
 const BASE_URL = "http://localhost:8000";
+const MAX_ITERATIONS = 80;
+const DELAY_MS = 40;
+
+function getStatusText(iteration) {
+  if (iteration < 15) return "Collecting data...";
+  if (iteration < 40) return "Estimating performance...";
+  return "Converging towards result...";
+}
+
+function getConclusionMessage(results) {
+  if (!results) return null;
+  const { sample_size_a, sample_size_b, difference, confidence_interval } = results;
+  if (sample_size_a < 50 || sample_size_b < 50) return null;
+  if (!confidence_interval) return null;
+
+  const ciLow = confidence_interval[0];
+  const ciHigh = confidence_interval[1];
+
+  // CI does NOT cross zero → statistically significant
+  if (ciLow > 0 && difference > 0) {
+    return { text: "Model B is statistically better", color: "text-tertiary" };
+  }
+  if (ciHigh < 0 && difference < 0) {
+    return { text: "Model A is statistically better", color: "text-tertiary" };
+  }
+  // CI includes 0 → not significant
+  return { text: "No statistically significant difference", color: "text-on-surface-variant" };
+}
 
 export default function DemoPage() {
   const [isRunning, setIsRunning] = useState(true);
   const [loadingMessage, setLoadingMessage] = useState("Initializing demo...");
   const [results, setResults] = useState(null);
   const [chartData, setChartData] = useState([]);
+  const [iteration, setIteration] = useState(0);
+  const [simulationDone, setSimulationDone] = useState(false);
+
   useEffect(() => {
     let active = true;
-    let iteration = 0;
+    let iter = 0;
 
     const runSimulationLoop = async () => {
-      while (active && isRunning) {
-        iteration++;
+      while (active && isRunning && iter < MAX_ITERATIONS) {
+        iter++;
+        setIteration(iter);
         console.log("Running simulation against:", BASE_URL);
         try {
           // POST predict
           const predictRequest = {
             experiment_id: "demo_exp",
-            features: { x: iteration }
+            features: { x: iter }
           };
           console.log("Final predict payload:", predictRequest);
 
@@ -62,7 +94,6 @@ export default function DemoPage() {
             if (!outcomeRes.ok) {
               const errorData = await outcomeRes.json();
               console.error("Outcome API Error:", errorData);
-              // Wait, throw here will be caught and simulation goes to next loop iteration
               throw new Error(`Outcome API failed with status ${outcomeRes.status}`);
             }
           }
@@ -90,7 +121,7 @@ export default function DemoPage() {
              setLoadingMessage(""); // Clear loading when we have 200 OK data
              
              // Update chart array dynamically
-             setChartData(prev => [...prev, { step: iteration, value: resultsData.difference }]);
+             setChartData(prev => [...prev, { step: iter, value: resultsData.difference }]);
           }
 
         } catch (error) {
@@ -98,8 +129,12 @@ export default function DemoPage() {
           // Do not crash the UI, continue loop if possible
         }
 
-        // Wait a bit before next iteration
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Fast iteration delay
+        await new Promise(resolve => setTimeout(resolve, DELAY_MS));
+      }
+
+      if (active) {
+        setSimulationDone(true);
       }
     };
 
@@ -110,20 +145,57 @@ export default function DemoPage() {
     };
   }, [isRunning]);
 
+  const conclusion = getConclusionMessage(results);
+
   return (
     <div className="min-h-screen flex flex-col bg-surface">
       <Navbar />
-      <main className="flex-1 flex flex-col items-center justify-center pt-20 px-8 pb-20">
+      <main className="flex-1 flex flex-col items-center pt-20 px-8 pb-20">
         <div className="w-full max-w-7xl mx-auto">
+          {/* Context Header */}
           <div className="text-center mb-12">
-            <h1 className="text-4xl font-bold mb-4 text-on-surface">Interactive Demo</h1>
-            {loadingMessage && (
-              <p className="text-on-surface-variant animate-pulse">{loadingMessage}</p>
-            )}
+            <h1 className="text-[3rem] font-bold mb-3 tracking-[-0.03em] text-on-surface">Live A/B Test Simulation</h1>
+            <p className="text-xl text-primary font-semibold mb-3">Comparing Model A vs Model B on conversion rate</p>
+            <p className="text-sm text-on-surface-variant max-w-2xl mx-auto leading-relaxed">
+              Model A baseline ~50%, Model B ~65%. Watch how statistical confidence emerges over time.
+            </p>
           </div>
+
+          {/* Loading State */}
+          {loadingMessage && (
+            <div className="text-center mb-8">
+              <p className="text-on-surface-variant animate-pulse text-lg">{loadingMessage}</p>
+            </div>
+          )}
           
           {results && !loadingMessage && (
-            <div className="space-y-8 animate-in fade-in duration-500">
+            <div className="space-y-8">
+              {/* Live Status Text */}
+              <div className="text-center">
+                {!simulationDone ? (
+                  <div className="flex items-center justify-center gap-3">
+                    <div className="w-2 h-2 rounded-full bg-tertiary animate-pulse"></div>
+                    <p className="text-on-surface-variant font-medium">{getStatusText(iteration)}</p>
+                    <span className="text-xs text-outline">Iteration {iteration}/{MAX_ITERATIONS}</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center gap-3">
+                    <div className="w-2 h-2 rounded-full bg-primary"></div>
+                    <p className="text-on-surface-variant font-medium">Simulation complete</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Final Conclusion */}
+              {conclusion && (
+                <div className="text-center bg-surface-container-high border border-outline-variant/20 rounded-2xl py-6 px-8 max-w-xl mx-auto">
+                  <span className="material-symbols-outlined text-3xl text-tertiary mb-2 block" style={{ fontVariationSettings: "'FILL' 1" }}>
+                    {conclusion.color === "text-tertiary" ? "check_circle" : "info"}
+                  </span>
+                  <p className={`text-xl font-bold ${conclusion.color}`}>{conclusion.text}</p>
+                </div>
+              )}
+
               {/* Metrics Section */}
               <div className="grid md:grid-cols-4 gap-6">
                 <div className="bg-surface-container p-6 rounded-2xl border border-outline-variant/10">
@@ -149,7 +221,10 @@ export default function DemoPage() {
               {/* Main Chart */}
               <div className="bg-surface-container-high border border-outline-variant/20 rounded-2xl p-8">
                 <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-xl font-bold text-on-surface">Effect Size Over Time</h3>
+                  <div>
+                    <h3 className="text-xl font-bold text-on-surface">Effect Size Over Time</h3>
+                    <p className="text-xs text-outline mt-1">Effect size (B − A)</p>
+                  </div>
                   <div className="flex gap-4 text-sm font-medium">
                     <span className="bg-surface p-2 rounded-lg text-on-surface-variant">Samples A: <span className="text-on-surface">{results.sample_size_a}</span></span>
                     <span className="bg-surface p-2 rounded-lg text-on-surface-variant">Samples B: <span className="text-on-surface">{results.sample_size_b}</span></span>
@@ -166,6 +241,7 @@ export default function DemoPage() {
                         itemStyle={{ color: '#c0c1ff' }}
                         labelStyle={{ color: '#a7b6cc', marginBottom: '0.25rem' }}
                       />
+                      <ReferenceLine y={0} stroke="#464554" strokeDasharray="4 4" />
                       <Line 
                         type="monotone" 
                         dataKey="value" 
