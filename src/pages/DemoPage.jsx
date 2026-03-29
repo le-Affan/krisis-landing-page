@@ -6,7 +6,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 const BASE_URL = "http://localhost:8000";
 
 const SCENARIOS = {
-  clear_winner: { label: "Clear Winner (B better)", probA: 0.5, probB: 0.65 },
+  clear_winner: { label: "Clear Winner", probA: 0.5, probB: 0.65 },
   no_difference: { label: "No Difference", probA: 0.5, probB: 0.5 },
   small_improvement: { label: "Small Improvement", probA: 0.5, probB: 0.52 },
 };
@@ -97,7 +97,7 @@ export default function DemoPage() {
 
     activeRef.current = true;
     let iter = 0;
-    
+
     const expId = `exp_${Date.now()}`;
     setCurrentExpId(expId);
 
@@ -175,11 +175,11 @@ export default function DemoPage() {
         const targetTotalMs = 17500;
         let baseDelay = targetTotalMs / sampleSize;
         const progress = iter / sampleSize;
-        
+
         if (progress < 0.3) {
           baseDelay *= 0.5;
         } else if (progress > 0.8) {
-          baseDelay *= 2.0; 
+          baseDelay *= 2.0;
         }
 
         const jitter = baseDelay * 0.2 * (Math.random() * 2 - 1);
@@ -218,11 +218,11 @@ export default function DemoPage() {
       <Navbar />
       <main className="flex-1 flex flex-col items-center pt-20 px-8 pb-20">
         <div className="w-full max-w-7xl mx-auto">
-          
+
           {/* Context Header */}
           <div className="text-center mb-12">
-            <h1 className="text-[3rem] font-bold mb-3 tracking-[-0.03em] text-on-surface">Live A/B Test Simulation</h1>
-            <p className="text-xl text-primary font-semibold mb-3">Comparing Model A vs Model B on conversion rate</p>
+            <h1 className="text-[3rem] font-bold mb-3 tracking-[-0.03em] text-on-surface">Krisis In Action!</h1>
+            <p className="text-xl text-primary font-semibold mb-3">Compare Model A vs Model B on conversion rate with real traffic</p>
             <p className="text-sm text-on-surface-variant max-w-2xl mx-auto leading-relaxed">
               Configure your experiment below, then watch statistical confidence emerge in real-time.
             </p>
@@ -305,8 +305,8 @@ export default function DemoPage() {
                       <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>offline_bolt</span>
                     </div>
                     <div>
-                      <h4 className="text-xs text-on-surface-variant font-bold uppercase tracking-wider mb-1">Offline Evaluation</h4>
-                      <p className="text-base font-semibold text-on-surface">Offline metrics suggest Model B is better (+11%)</p>
+                      <h4 className="text-xs text-on-surface-variant font-bold uppercase tracking-wider mb-1">What does offline evaluation say?</h4>
+                      <p className="text-base font-semibold text-on-surface">Offline metrics suggest Model B is better (+11%) but is that actually true?</p>
                     </div>
                   </div>
                   <div className="bg-surface-container-lowest border border-outline-variant/10 rounded-lg p-4 mx-2 sm:mx-16 mt-2">
@@ -354,7 +354,7 @@ export default function DemoPage() {
           {/* ===== RESULTS DASHBOARD ===== */}
           {isActive && results && !loadingMessage && (
             <div className="space-y-8 animate-in fade-in duration-500">
-              
+
               {/* Dynamic Narrative / Story Text */}
               <div className="text-center mb-4">
                 <p className="text-2xl font-bold text-on-surface mb-6">Does this hold in real traffic?</p>
@@ -375,22 +375,37 @@ export default function DemoPage() {
               {/* Decision Prompt Before Insight */}
               {phase === "done" && !userDecision && (
                 <div className="text-center bg-surface-container border border-outline-variant/30 rounded-2xl py-8 px-10 max-w-xl mx-auto shadow-xl animate-in zoom-in-95 duration-500">
-                  <h3 className="text-2xl font-bold text-on-surface mb-8">What would you do?</h3>
+                  <h3 className="text-2xl font-bold text-on-surface mb-6">What would you do?</h3>
+                  
+                  {/* Dumbed Down Decision Guide */}
+                  <div className="bg-surface-container-low border border-outline-variant/20 rounded-xl p-5 mb-8 text-left text-sm max-w-md mx-auto shadow-sm">
+                    <p className="font-bold text-on-surface mb-3 uppercase tracking-wider text-[11px]">How to decide:</p>
+                    <div className="space-y-3">
+                      <div className="flex gap-3">
+                        <span className="material-symbols-outlined text-tertiary text-[18px]">check_circle</span>
+                        <p className="text-on-surface-variant leading-snug">If effect size is positive AND confidence interval does NOT include 0 → <strong>choose Model B</strong></p>
+                      </div>
+                      <div className="flex gap-3">
+                        <span className="material-symbols-outlined text-error text-[18px]">cancel</span>
+                        <p className="text-on-surface-variant leading-snug">If confidence interval includes 0 → <strong>do NOT deploy Model B</strong></p>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                    <button 
-                      onClick={() => setUserDecision('b')} 
+                    <button
+                      onClick={() => setUserDecision('b')}
                       className="kinetic-monolith-gradient text-on-primary-container px-8 py-4 rounded-xl font-bold shadow-md hover:brightness-110 active:scale-95 transition-all text-lg"
                     >
                       Deploy Model B
                     </button>
-                    <button 
-                      onClick={() => setUserDecision('a')} 
+                    <button
+                      onClick={() => setUserDecision('a')}
                       className="bg-surface-container-highest border border-outline-variant/30 text-on-surface px-8 py-4 rounded-xl font-bold hover:bg-surface-bright active:scale-95 transition-all text-lg"
                     >
                       Keep Model A
                     </button>
                   </div>
-                  <p className="text-sm text-outline mt-6 italic">Choose carefully based on the emerging trend.</p>
                 </div>
               )}
 
@@ -419,13 +434,27 @@ export default function DemoPage() {
                   <p className="text-2xl font-bold text-on-surface">{results.model_b_mean?.toFixed(4) || "0.0000"}</p>
                 </div>
                 <div className="bg-surface-container p-6 rounded-2xl border border-outline-variant/10">
-                  <h4 className="text-sm text-on-surface-variant font-medium mb-2">Effect Size</h4>
+                  <div className="flex items-center gap-1 mb-2">
+                    <h4 className="text-sm text-on-surface-variant font-medium">Effect Size</h4>
+                    <div className="group relative flex items-center">
+                      <span className="material-symbols-outlined text-outline text-[16px] cursor-help">info</span>
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-3 bg-surface-container-highest border border-outline-variant/20 rounded-xl text-xs text-on-surface shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 text-center">
+                        Effect size shows how much better B is compared to A.
+                        <br/><br/>
+                        <span className="text-tertiary font-bold">Positive</span> = B is better<br/>
+                        <span className="text-error font-bold">Negative</span> = A is better
+                      </div>
+                    </div>
+                  </div>
                   <p className="text-2xl font-bold text-primary">{results.difference > 0 ? "+" : ""}{results.difference?.toFixed(4) || "0.0000"}</p>
                 </div>
                 <div className="bg-surface-container p-6 rounded-2xl border border-outline-variant/10">
                   <h4 className="text-sm text-on-surface-variant font-medium mb-2">95% Confidence Interval</h4>
                   <p className="text-lg font-bold text-on-surface">
                     [{results.confidence_interval?.[0]?.toFixed(4)}, {results.confidence_interval?.[1]?.toFixed(4)}]
+                  </p>
+                  <p className="text-[11px] text-on-surface-variant mt-3 leading-tight border-t border-outline-variant/10 pt-3">
+                    If this range <span className="text-error font-bold">includes 0</span>, the result is NOT statistically significant.
                   </p>
                 </div>
               </div>
@@ -444,16 +473,16 @@ export default function DemoPage() {
                 </div>
                 <div className="h-80 w-full relative">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                    <LineChart data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 20 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#464554" vertical={false} opacity={0.3} />
-                      <XAxis dataKey="step" stroke="#908fa0" tick={{fill: '#908fa0', fontSize: 12}} />
-                      <YAxis stroke="#908fa0" tick={{fill: '#908fa0', fontSize: 12}} domain={['auto', 'auto']} />
+                      <XAxis dataKey="step" stroke="#908fa0" tick={{ fill: '#908fa0', fontSize: 12 }} label={{ value: 'Number of users (sample size)', position: 'bottom', offset: 0, fill: '#a7b6cc', fontSize: 13 }} />
+                      <YAxis stroke="#908fa0" tick={{ fill: '#908fa0', fontSize: 12 }} domain={['auto', 'auto']} label={{ value: 'Effect size (B - A)', angle: -90, position: 'insideLeft', offset: -5, fill: '#a7b6cc', fontSize: 13, style: { textAnchor: 'middle' } }} />
                       <Tooltip
                         contentStyle={{ backgroundColor: '#222a3d', borderColor: '#464554', borderRadius: '0.5rem', color: '#dae2fd' }}
                         itemStyle={{ color: '#c0c1ff' }}
                         labelStyle={{ color: '#a7b6cc', marginBottom: '0.25rem' }}
                       />
-                      <ReferenceLine y={0} stroke="#464554" strokeDasharray="4 4" />
+                      <ReferenceLine y={0} stroke="#464554" strokeDasharray="4 4" label={{ position: 'insideBottomRight', value: 'No difference', fill: '#908fa0', fontSize: 12 }} />
                       <Line
                         type="monotone"
                         dataKey="value"
@@ -466,12 +495,25 @@ export default function DemoPage() {
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
+                
+                {/* Live Chart Interpretation */}
+                <div className="mt-8 text-center animate-in fade-in duration-500">
+                  {results.confidence_interval && (
+                    <div className="inline-block px-8 py-3 bg-surface-container border border-outline-variant/10 rounded-full shadow-sm text-sm font-semibold tracking-wide">
+                      {results.confidence_interval[0] <= 0 && results.confidence_interval[1] >= 0 
+                        ? <span className="text-on-surface flex items-center justify-center gap-2"><span className="material-symbols-outlined text-outline text-[18px]">hourglass_empty</span> No clear winner yet — difference may be due to noise</span>
+                        : results.difference > 0 
+                        ? <span className="text-tertiary flex items-center justify-center gap-2"><span className="material-symbols-outlined text-[18px]">trending_up</span> Model B is consistently outperforming A</span>
+                        : <span className="text-error flex items-center justify-center gap-2"><span className="material-symbols-outlined text-[18px]">trending_down</span> Model A is outperforming B</span>}
+                    </div>
+                  )}
+                </div>
               </div>
-              
+
               {/* Post-Simulation Product Framing */}
               {phase === "done" && userDecision && (
                 <div className="mt-16 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                  
+
                   {/* Previous Core Lesson */}
                   <div className="text-center mb-16">
                     <p className="inline-block px-8 py-4 bg-error/5 border border-error/20 rounded-full text-lg text-on-surface font-bold tracking-wide shadow-md">
@@ -552,12 +594,12 @@ export default function DemoPage() {
                       <button
                         className="bg-surface border border-outline-variant/30 text-on-surface px-8 py-4 rounded-xl font-bold shadow-sm hover:bg-surface-container-highest active:scale-95 transition-all text-sm uppercase tracking-wider w-full sm:w-auto text-center flex items-center justify-center gap-2"
                       >
-                        <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                        <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" /></svg>
                         View GitHub
                       </button>
                     </div>
                   </div>
-                  
+
                   {/* Restart Simulation Link */}
                   <div className="mt-10 text-center">
                     <button
