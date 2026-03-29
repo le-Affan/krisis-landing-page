@@ -71,6 +71,16 @@ export default function DemoPage() {
   const probA = 0.5;
   let probB = 0.5 + (offlineImprovement / 100);
 
+  // Derive Confidence Level
+  const getConfidenceInfo = (ci) => {
+    if (!ci) return { label: "ANALYZING", color: "text-outline" };
+    const [low, high] = ci;
+    if (low > 0) return { label: "HIGH", color: "text-tertiary", glow: "shadow-[0_0_20px_rgba(76,215,246,0.15)]" };
+    if (low > -0.02 && high > 0) return { label: "MEDIUM", color: "text-primary" };
+    return { label: "LOW", color: "text-error" };
+  };
+  const confInfo = getConfidenceInfo(results?.confidence_interval);
+
   // Ensure bands are clamped strictly as ordered
   if (offlineImprovement <= 4) {
     probB = Math.min(probB, 0.53);
@@ -302,7 +312,7 @@ export default function DemoPage() {
 
           {/* ===== RUNNING CONFIG SUMMARY ===== */}
           {isActive && (
-            <div className="text-center mb-8 animate-in fade-in duration-500">
+            <div className="text-center mb-8 mt-10 opacity-90 animate-in fade-in duration-500">
               <div className="inline-flex items-center gap-3 bg-surface-container border border-outline-variant/15 rounded-full px-6 py-2 text-sm shadow-sm">
                 <span className="text-on-surface-variant">Running Real-world Test</span>
                 <span className="text-outline">|</span>
@@ -340,13 +350,21 @@ export default function DemoPage() {
                 <div className="text-center bg-surface-container border border-outline-variant/30 rounded-2xl py-8 px-10 max-w-xl mx-auto shadow-xl animate-in zoom-in-95 duration-500">
                   <h3 className="text-2xl font-bold text-on-surface mb-6">What would you do?</h3>
 
-                  {/* Dumbed Down Decision Guide */}
+                  {/* Decision Guide */}
                   <div className="bg-surface-container-low border border-outline-variant/20 rounded-xl p-5 mb-8 text-left text-sm max-w-md mx-auto shadow-sm">
-                    <p className="font-bold text-on-surface mb-3 uppercase tracking-wider text-[11px]">How to decide:</p>
-                    <div className="space-y-3">
-                      <div className="flex gap-3">
-                        <span className="material-symbols-outlined text-tertiary text-[18px]">rule</span>
-                        <p className="text-on-surface-variant leading-snug">Only deploy Model B if the confidence interval does <strong>NOT include 0</strong></p>
+                    <p className="font-bold text-on-surface mb-3 uppercase tracking-wider text-[11px]">Decision guide:</p>
+                    <div className="space-y-3 font-medium">
+                      <div className="flex gap-3 items-center">
+                        <div className="w-1.5 h-1.5 rounded-full bg-tertiary"></div>
+                        <p className="text-on-surface-variant leading-snug"><span className="text-tertiary font-bold">HIGH</span> confidence → Deploy Model B</p>
+                      </div>
+                      <div className="flex gap-3 items-center">
+                        <div className="w-1.5 h-1.5 rounded-full bg-primary"></div>
+                        <p className="text-on-surface-variant leading-snug"><span className="text-primary font-bold">MEDIUM</span> confidence → Wait for more data</p>
+                      </div>
+                      <div className="flex gap-3 items-center">
+                        <div className="w-1.5 h-1.5 rounded-full bg-error"></div>
+                        <p className="text-on-surface-variant leading-snug"><span className="text-error font-bold">LOW</span> confidence → Keep Model A</p>
                       </div>
                     </div>
                   </div>
@@ -401,7 +419,7 @@ export default function DemoPage() {
               </div>
 
               {/* Metrics Section */}
-              <div className="grid md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 <div className="bg-surface-container p-4 rounded-2xl border border-outline-variant/10">
                   <div className="flex items-center gap-1 mb-1">
                     <h4 className="text-[13px] text-on-surface-variant font-medium">Model A Mean</h4>
@@ -438,11 +456,23 @@ export default function DemoPage() {
                   </div>
                   <p className="text-xl font-bold text-primary">{results?.difference > 0 ? "+" : ""}{results?.difference?.toFixed(4) || "0.0000"}</p>
                 </div>
+                <div className="bg-surface-container-high p-4 rounded-2xl border border-primary/20 shadow-[0_0_30px_rgba(192,193,255,0.03)]">
+                  <div className="flex items-center gap-1 mb-1">
+                    <h4 className="text-[13px] text-on-surface-variant font-medium uppercase tracking-tight">Confidence</h4>
+                  </div>
+                  <p className={`text-2xl font-black ${confInfo.color} ${confInfo.glow || ''}`}>{confInfo.label}</p>
+                </div>
                 <div className="bg-surface-container p-4 rounded-2xl border border-outline-variant/10">
                   <div className="flex items-center gap-1 mb-1">
-                    <h4 className="text-[13px] text-on-surface-variant font-medium">Confidence Interval</h4>
+                    <h4 className="text-[11px] text-outline font-medium">Confidence Interval</h4>
+                    <div className="group relative flex items-center">
+                      <span className="material-symbols-outlined text-outline text-[12px] cursor-help">info</span>
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-surface-container-highest border border-outline-variant/20 rounded-xl text-[10px] text-on-surface shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 text-center">
+                        Range of possible true improvements. If this range crosses 0, the result is not reliable.
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-lg font-bold text-on-surface">
+                  <p className="text-sm font-semibold text-on-surface-variant">
                     {results?.confidence_interval ? `[${results.confidence_interval[0]?.toFixed(2)}, ${results.confidence_interval[1]?.toFixed(2)}]` : "..."}
                   </p>
                 </div>
