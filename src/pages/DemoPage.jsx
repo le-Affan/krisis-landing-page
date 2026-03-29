@@ -220,13 +220,15 @@ export default function DemoPage() {
         <div className="w-full max-w-7xl mx-auto">
 
           {/* Context Header */}
-          <div className="text-center mb-12">
-            <h1 className="text-[3rem] font-bold mb-3 tracking-[-0.03em] text-on-surface">Krisis In Action!</h1>
-            <p className="text-xl text-primary font-semibold mb-3">Compare Model A vs Model B on conversion rate with real traffic</p>
-            <p className="text-sm text-on-surface-variant max-w-2xl mx-auto leading-relaxed">
-              Configure your experiment below, then watch statistical confidence emerge in real-time.
-            </p>
-          </div>
+          {phase === "setup" && (
+            <div className="text-center mb-12">
+              <h1 className="text-[3rem] font-bold mb-3 tracking-[-0.03em] text-on-surface">Krisis In Action!</h1>
+              <p className="text-xl text-primary font-semibold mb-3">Compare Model A vs Model B on conversion rate with real traffic</p>
+              <p className="text-sm text-on-surface-variant max-w-2xl mx-auto leading-relaxed">
+                Configure your experiment below, then watch statistical confidence emerge in real-time.
+              </p>
+            </div>
+          )}
 
           {/* ===== SETUP PANEL ===== */}
           {phase === "setup" && (
@@ -236,7 +238,7 @@ export default function DemoPage() {
 
                 {/* Scenario */}
                 <div>
-                  <label className="block text-sm font-semibold text-on-surface-variant mb-2">Scenario</label>
+                  <label className="block text-sm font-semibold text-on-surface-variant mb-2">Scenario (simulated real-world outcome)</label>
                   <select
                     value={scenario}
                     onChange={(e) => setScenario(e.target.value)}
@@ -247,9 +249,7 @@ export default function DemoPage() {
                     ))}
                   </select>
                   <p className="text-xs text-outline mt-2">
-                    {scenario === "clear_winner" && "Model A baseline ~50%, Model B ~65%."}
-                    {scenario === "no_difference" && "Both models perform at ~50%. No real difference."}
-                    {scenario === "small_improvement" && "Model A ~50%, Model B ~52%. Very subtle gain."}
+                    This controls how models actually perform in real traffic. It may or may not match offline expectations.
                   </p>
                 </div>
 
@@ -382,12 +382,8 @@ export default function DemoPage() {
                     <p className="font-bold text-on-surface mb-3 uppercase tracking-wider text-[11px]">How to decide:</p>
                     <div className="space-y-3">
                       <div className="flex gap-3">
-                        <span className="material-symbols-outlined text-tertiary text-[18px]">check_circle</span>
-                        <p className="text-on-surface-variant leading-snug">If effect size is positive AND confidence interval does NOT include 0 → <strong>choose Model B</strong></p>
-                      </div>
-                      <div className="flex gap-3">
-                        <span className="material-symbols-outlined text-error text-[18px]">cancel</span>
-                        <p className="text-on-surface-variant leading-snug">If confidence interval includes 0 → <strong>do NOT deploy Model B</strong></p>
+                        <span className="material-symbols-outlined text-tertiary text-[18px]">rule</span>
+                        <p className="text-on-surface-variant leading-snug">Only deploy Model B if the confidence interval does <strong>NOT include 0</strong></p>
                       </div>
                     </div>
                   </div>
@@ -426,11 +422,27 @@ export default function DemoPage() {
               {/* Metrics Section */}
               <div className="grid md:grid-cols-4 gap-6">
                 <div className="bg-surface-container p-6 rounded-2xl border border-outline-variant/10">
-                  <h4 className="text-sm text-on-surface-variant font-medium mb-2">Model A Mean</h4>
+                  <div className="flex items-center gap-1 mb-2">
+                    <h4 className="text-sm text-on-surface-variant font-medium">Model A Mean</h4>
+                    <div className="group relative flex items-center">
+                      <span className="material-symbols-outlined text-outline text-[16px] cursor-help">info</span>
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-3 bg-surface-container-highest border border-outline-variant/20 rounded-xl text-xs text-on-surface shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 text-center">
+                        Average performance of Model A on real users
+                      </div>
+                    </div>
+                  </div>
                   <p className="text-2xl font-bold text-on-surface">{results.model_a_mean?.toFixed(4) || "0.0000"}</p>
                 </div>
                 <div className="bg-surface-container p-6 rounded-2xl border border-outline-variant/10">
-                  <h4 className="text-sm text-on-surface-variant font-medium mb-2">Model B Mean</h4>
+                  <div className="flex items-center gap-1 mb-2">
+                    <h4 className="text-sm text-on-surface-variant font-medium">Model B Mean</h4>
+                    <div className="group relative flex items-center">
+                      <span className="material-symbols-outlined text-outline text-[16px] cursor-help">info</span>
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-3 bg-surface-container-highest border border-outline-variant/20 rounded-xl text-xs text-on-surface shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 text-center">
+                        Average performance of Model B on real users
+                      </div>
+                    </div>
+                  </div>
                   <p className="text-2xl font-bold text-on-surface">{results.model_b_mean?.toFixed(4) || "0.0000"}</p>
                 </div>
                 <div className="bg-surface-container p-6 rounded-2xl border border-outline-variant/10">
@@ -449,9 +461,17 @@ export default function DemoPage() {
                   <p className="text-2xl font-bold text-primary">{results.difference > 0 ? "+" : ""}{results.difference?.toFixed(4) || "0.0000"}</p>
                 </div>
                 <div className="bg-surface-container p-6 rounded-2xl border border-outline-variant/10">
-                  <h4 className="text-sm text-on-surface-variant font-medium mb-2">95% Confidence Interval</h4>
+                  <div className="flex items-center gap-1 mb-2">
+                    <h4 className="text-sm text-on-surface-variant font-medium">95% Confidence Interval</h4>
+                    <div className="group relative flex items-center">
+                      <span className="material-symbols-outlined text-outline text-[16px] cursor-help">info</span>
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-3 bg-surface-container-highest border border-outline-variant/20 rounded-xl text-xs text-on-surface shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 text-center">
+                        Range of possible true differences. If it includes 0, the result is not statistically reliable
+                      </div>
+                    </div>
+                  </div>
                   <p className="text-lg font-bold text-on-surface">
-                    [{results.confidence_interval?.[0]?.toFixed(4)}, {results.confidence_interval?.[1]?.toFixed(4)}]
+                    [{results.confidence_interval?.[0]?.toFixed(2)}, {results.confidence_interval?.[1]?.toFixed(2)}]
                   </p>
                   <p className="text-[11px] text-on-surface-variant mt-3 leading-tight border-t border-outline-variant/10 pt-3">
                     If this range <span className="text-error font-bold">includes 0</span>, the result is NOT statistically significant.
@@ -463,8 +483,7 @@ export default function DemoPage() {
               <div className="bg-surface-container-high border border-outline-variant/20 rounded-2xl p-8 shadow-xl">
                 <div className="flex justify-between items-center mb-6">
                   <div>
-                    <h3 className="text-xl font-bold text-on-surface">Effect Size Over Time</h3>
-                    <p className="text-xs text-outline mt-1 font-medium tracking-wide">Effect size (B − A)</p>
+                    <h3 className="text-xl font-bold text-on-surface">Model Performance Difference Under Real Traffic</h3>
                   </div>
                   <div className="flex gap-4 text-sm font-medium">
                     <span className="bg-surface p-2 rounded-lg text-on-surface-variant">Samples A: <span className="text-on-surface">{results.sample_size_a}</span></span>
@@ -500,11 +519,15 @@ export default function DemoPage() {
                 <div className="mt-8 text-center animate-in fade-in duration-500">
                   {results.confidence_interval && (
                     <div className="inline-block px-8 py-3 bg-surface-container border border-outline-variant/10 rounded-full shadow-sm text-sm font-semibold tracking-wide">
-                      {results.confidence_interval[0] <= 0 && results.confidence_interval[1] >= 0 
-                        ? <span className="text-on-surface flex items-center justify-center gap-2"><span className="material-symbols-outlined text-outline text-[18px]">hourglass_empty</span> No clear winner yet — difference may be due to noise</span>
+                      {progressPct < 0.3 
+                        ? <span className="text-outline flex items-center justify-center gap-2"><span className="material-symbols-outlined text-[18px]">query_stats</span> Collecting data — results are noisy</span>
+                        : progressPct < 0.7 && results.confidence_interval[0] <= 0 && results.confidence_interval[1] >= 0
+                        ? <span className="text-on-surface-variant flex items-center justify-center gap-2"><span className="material-symbols-outlined text-[18px]">trending_flat</span> Trend emerging — confidence still low</span>
+                        : results.confidence_interval[0] <= 0 && results.confidence_interval[1] >= 0
+                        ? <span className="text-on-surface flex items-center justify-center gap-2"><span className="material-symbols-outlined text-[18px]">hourglass_empty</span> No clear winner — difference may be due to noise</span>
                         : results.difference > 0 
-                        ? <span className="text-tertiary flex items-center justify-center gap-2"><span className="material-symbols-outlined text-[18px]">trending_up</span> Model B is consistently outperforming A</span>
-                        : <span className="text-error flex items-center justify-center gap-2"><span className="material-symbols-outlined text-[18px]">trending_down</span> Model A is outperforming B</span>}
+                        ? <span className="text-tertiary flex items-center justify-center gap-2"><span className="material-symbols-outlined text-[18px]">trending_up</span> Model B is outperforming A with confidence</span>
+                        : <span className="text-error flex items-center justify-center gap-2"><span className="material-symbols-outlined text-[18px]">trending_down</span> Model A is outperforming B with confidence</span>}
                     </div>
                   )}
                 </div>
