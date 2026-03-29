@@ -5,17 +5,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 
 const BASE_URL = "http://localhost:8000";
 
-const SCENARIOS = {
-  clear_winner: { label: "Clear Winner", probA: 0.5, probB: 0.65 },
-  no_difference: { label: "No Difference", probA: 0.5, probB: 0.5 },
-  small_improvement: { label: "Small Improvement", probA: 0.5, probB: 0.52 },
-};
 
-function getStoryText(pct) {
-  if (pct < 0.3) return "Initial results are noisy as there is not enough data yet";
-  if (pct < 0.7) return "Ahaa! We are starting to see a trend, but confidence is still low";
-  return "Results are stabilizing as the confidence is increasing";
-}
 
 function getInsightMessage(results, decision) {
   if (!results || !decision) return null;
@@ -24,51 +14,40 @@ function getInsightMessage(results, decision) {
 
   const ciLow = confidence_interval[0];
   const ciHigh = confidence_interval[1];
-
-  const bIsBetter = ciLow > 0 && difference > 0;
-  const aIsBetter = ciHigh < 0 && difference < 0;
-  const noDifference = ciLow <= 0 && ciHigh >= 0;
+  const includesZero = ciLow <= 0 && ciHigh >= 0;
 
   let feedback = "";
-  if (bIsBetter && decision === 'b') {
+  if (!includesZero && decision === 'b') {
     feedback = "You made the right call based on real evidence.";
-  } else if (!bIsBetter && decision === 'a') {
+  } else if (includesZero && decision === 'a') {
     feedback = "You made the right call based on real evidence.";
   } else {
     feedback = "This is exactly how teams ship regressions when relying only on offline metrics.";
   }
 
-  if (ciLow > 0 && difference > 0) {
+  if (includesZero && difference > 0 && ciHigh > 0.05 && ciLow > -0.02) {
     return {
-      title: "Model B truly performs better",
-      text: "Offline metrics were correct — Model B truly performs better in real conditions.",
-      feedback,
-      color: "text-tertiary",
-      icon: "check_circle"
-    };
-  } else if (ciHigh < 0 && difference < 0) {
-    return {
-      title: "Model A actually performs better",
-      text: "Offline metrics were wildly incorrect — Model A truly performs better in real conditions.",
-      feedback,
-      color: "text-tertiary",
-      icon: "check_circle"
-    };
-  } else if (difference > 0) {
-    return {
-      title: "Inconclusive results",
-      text: "The improvement is too small to be confident. Deploying would be risky.",
+      title: "Borderline Result",
+      text: "The improvement is small and uncertain. More data is needed before making a decision.",
       feedback,
       color: "text-primary",
       icon: "info"
     };
-  } else {
+  } else if (includesZero) {
     return {
       title: "Misleading Offline Metrics",
-      text: "Offline metrics were misleading. The improvement does NOT hold in real traffic.",
+      text: "The improvement seen offline does NOT hold under real traffic. Deploying Model B would be risky.",
       feedback,
       color: "text-on-surface-variant",
       icon: "warning"
+    };
+  } else {
+    return {
+      title: "Model B truly performs better",
+      text: "Model B is truly better under real traffic. You can safely deploy Model B.",
+      feedback,
+      color: "text-tertiary",
+      icon: "check_circle"
     };
   }
 }
@@ -76,9 +55,9 @@ function getInsightMessage(results, decision) {
 export default function DemoPage() {
   // --- Setup state ---
   const [phase, setPhase] = useState("setup"); // "setup" | "running" | "done"
-  const [scenario, setScenario] = useState("clear_winner");
-  const [trafficSplit, setTrafficSplit] = useState(50);
-  const [sampleSize, setSampleSize] = useState(300);
+  const [offlineImprovement, setOfflineImprovement] = useState(11);
+  const sampleSize = 500;
+  const trafficSplit = 50;
 
   // --- Simulation state ---
   const [loadingMessage, setLoadingMessage] = useState("");
@@ -89,7 +68,24 @@ export default function DemoPage() {
   const [userDecision, setUserDecision] = useState(null);
   const activeRef = useRef(false);
 
-  const config = SCENARIOS[scenario];
+  const probA = 0.5;
+  let probB = 0.5 + (offlineImprovement / 100);
+
+  // Ensure bands are clamped strictly as ordered
+  if (offlineImprovement <= 4) {
+    probB = Math.min(probB, 0.53);
+  } else if (offlineImprovement <= 9) {
+    probB = Math.min(probB, 0.58);
+  } else {
+    probB = Math.min(probB, 0.65);
+  }
+  if (offlineImprovement <= 4) {
+    probB = Math.min(probB, 0.53);
+  } else if (offlineImprovement <= 9) {
+    probB = Math.min(probB, 0.58);
+  } else {
+    probB = Math.min(probB, 0.65);
+  }
 
   // --- Run simulation when phase transitions to "running" ---
   useEffect(() => {
@@ -98,10 +94,20 @@ export default function DemoPage() {
     activeRef.current = true;
     let iter = 0;
 
+    let localCountA = 0;
+    let localCountB = 0;
+    let localSumA = 0;
+    let localSumB = 0;
+
     const expId = `exp_${Date.now()}`;
     setCurrentExpId(expId);
 
     const runSimulationLoop = async () => {
+      console.log("--- EXPERIMENT STARTED ---");
+      console.log("Offline Improvement:", offlineImprovement + "%");
+      console.log("Assigned probA:", probA);
+      console.log("Assigned probB:", probB);
+
       setLoadingMessage("Initializing experiment on backend...");
 
       try {
@@ -137,11 +143,37 @@ export default function DemoPage() {
           if (!predictRes.ok) throw new Error(`Predict API failed with status ${predictRes.status}`);
           const predictData = await predictRes.json();
           const requestId = predictData.request_id;
-          const variant = predictData.model_variant || "a";
 
-          const isModelB = variant.toLowerCase().includes('b') || variant.toLowerCase().includes('treatment');
-          const probability = isModelB ? config.probB : config.probA;
+          console.log("Predict response:", predictData);
+
+          // Robustly parse the model variant since backend keys may vary
+          const variantObj = predictData.model_variant || predictData.model_id || predictData.variant || "a";
+          const variantStr = String(variantObj).toLowerCase();
+
+          const isModelB = variantStr.includes('b') || variantStr.includes('treatment');
+          console.log("Detected variant:", variantStr, "isModelB:", isModelB);
+
+          const probability = isModelB ? probB : probA;
+          console.log("Using probability:", probability);
+
           const outcomeValue = Math.random() < probability ? 1 : 0;
+          console.log("Generated outcome:", outcomeValue);
+
+          if (isModelB) {
+            localCountB++;
+            localSumB += outcomeValue;
+          } else {
+            localCountA++;
+            localSumA += outcomeValue;
+          }
+
+          const meanA = localCountA > 0 ? localSumA / localCountA : 0;
+          const meanB = localCountB > 0 ? localSumB / localCountB : 0;
+          const localDiff = meanB - meanA;
+
+          if (iter % 5 === 0 || iter === sampleSize) {
+            setChartData(prev => [...prev, { step: iter, value: localDiff }]);
+          }
 
           if (requestId) {
             const outcomeRes = await fetch(`${BASE_URL}/api/v1/outcomes`, {
@@ -163,28 +195,20 @@ export default function DemoPage() {
           if (resultsRes.ok) {
             const resultsData = await resultsRes.json();
             setResults(resultsData);
-            setChartData(prev => [...prev, { step: iter, value: resultsData.difference }]);
-          } else if (resultsRes.status === 400 && !results) {
-            setLoadingMessage("Waiting for sufficient samples...");
+
+            if (iter === sampleSize) {
+              console.log("--- SIMULATION FINISHED ---");
+              console.log("sample_size_a:", resultsData.sample_size_a);
+              console.log("sample_size_b:", resultsData.sample_size_b);
+              console.log("final CI:", resultsData.confidence_interval);
+            }
           }
 
         } catch (error) {
           console.error("API request failed during simulation loop:", error);
         }
 
-        const targetTotalMs = 17500;
-        let baseDelay = targetTotalMs / sampleSize;
-        const progress = iter / sampleSize;
-
-        if (progress < 0.3) {
-          baseDelay *= 0.5;
-        } else if (progress > 0.8) {
-          baseDelay *= 2.0;
-        }
-
-        const jitter = baseDelay * 0.2 * (Math.random() * 2 - 1);
-        const finalDelay = Math.max(10, baseDelay + jitter);
-
+        const finalDelay = 18000 / sampleSize;
         await new Promise(resolve => setTimeout(resolve, finalDelay));
       }
 
@@ -198,7 +222,7 @@ export default function DemoPage() {
     return () => {
       activeRef.current = false;
     };
-  }, [phase, sampleSize, config, trafficSplit]);
+  }, [phase, sampleSize, trafficSplit, probA, probB]);
 
   const handleStart = () => {
     setResults(null);
@@ -222,110 +246,56 @@ export default function DemoPage() {
           {/* Context Header */}
           {phase === "setup" && (
             <div className="text-center mb-12">
-              <h1 className="text-[3rem] font-bold mb-3 tracking-[-0.03em] text-on-surface">Krisis In Action!</h1>
-              <p className="text-xl text-primary font-semibold mb-3">Compare Model A vs Model B on conversion rate with real traffic</p>
-              <p className="text-sm text-on-surface-variant max-w-2xl mx-auto leading-relaxed">
-                Configure your experiment below, then watch statistical confidence emerge in real-time.
-              </p>
+              <h1 className="text-[3rem] font-bold tracking-[-0.03em] text-on-surface">Krisis in Action!</h1>
+              <p className="text-xl text-primary font-semibold mb-3">Test if offline improvements hold in real traffic</p>
             </div>
           )}
 
           {/* ===== SETUP PANEL ===== */}
           {phase === "setup" && (
             <div className="max-w-2xl mx-auto mb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div className="bg-surface-container-high border border-outline-variant/20 rounded-2xl p-8 space-y-8">
-                <h2 className="text-xl font-bold text-on-surface mb-2">Experiment Setup</h2>
+              <div className="bg-surface-container-high border border-outline-variant/20 rounded-2xl p-8 space-y-10">
+                <h2 className="text-xl font-bold text-on-surface mb-2">Configure Your Experiment</h2>
 
-                {/* Scenario */}
+                {/* Offline Improvement */}
                 <div>
-                  <label className="block text-sm font-semibold text-on-surface-variant mb-2">Scenario (simulated real-world outcome)</label>
-                  <select
-                    value={scenario}
-                    onChange={(e) => setScenario(e.target.value)}
-                    className="w-full bg-surface-container-lowest border border-outline-variant/30 text-on-surface rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary/40 transition-colors"
-                  >
-                    {Object.entries(SCENARIOS).map(([key, val]) => (
-                      <option key={key} value={key}>{val.label}</option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-outline mt-2">
-                    This controls how models actually perform in real traffic. It may or may not match offline expectations.
-                  </p>
-                </div>
-
-                {/* Traffic Split */}
-                <div>
-                  <label className="block text-sm font-semibold text-on-surface-variant mb-2">
-                    Traffic to Model B: <span className="text-primary font-bold">{trafficSplit}%</span>
+                  <label className="block text-sm font-semibold text-on-surface-variant mb-4">
+                    Set offline improvement estimate: <span className="text-primary font-bold">+{offlineImprovement}%</span>
                   </label>
                   <input
                     type="range"
-                    min={10}
-                    max={90}
-                    value={trafficSplit}
-                    onChange={(e) => setTrafficSplit(Number(e.target.value))}
+                    min={1}
+                    max={15}
+                    value={offlineImprovement}
+                    onChange={(e) => setOfflineImprovement(Number(e.target.value))}
                     className="w-full h-2 rounded-full appearance-none cursor-pointer"
                     style={{
-                      background: `linear-gradient(to right, #c0c1ff ${trafficSplit}%, #2d3449 ${trafficSplit}%)`
+                      background: `linear-gradient(to right, #c0c1ff ${((offlineImprovement - 1) / 14) * 100}%, #2d3449 ${((offlineImprovement - 1) / 14) * 100}%)`
                     }}
                   />
-                  <div className="flex justify-between text-xs text-outline mt-1">
-                    <span>10%</span>
-                    <span>90%</span>
+                  <div className="flex justify-between text-xs text-outline mt-2">
+                    <span>1%</span>
+                    <span>15%</span>
                   </div>
                 </div>
 
-                {/* Sample Size */}
-                <div>
-                  <label className="block text-sm font-semibold text-on-surface-variant mb-2">
-                    Number of Requests: <span className="text-primary font-bold">{sampleSize}</span>
-                  </label>
-                  <input
-                    type="range"
-                    min={50}
-                    max={500}
-                    step={10}
-                    value={sampleSize}
-                    onChange={(e) => setSampleSize(Number(e.target.value))}
-                    className="w-full h-2 rounded-full appearance-none cursor-pointer"
-                    style={{
-                      background: `linear-gradient(to right, #c0c1ff ${((sampleSize - 50) / 450) * 100}%, #2d3449 ${((sampleSize - 50) / 450) * 100}%)`
-                    }}
-                  />
-                  <div className="flex justify-between text-xs text-outline mt-1">
-                    <span>50</span>
-                    <span>500</span>
-                  </div>
-                </div>
-
-                {/* Offline Result Context */}
-                <div className="bg-surface-container border border-tertiary/20 rounded-xl p-5 mt-6 mb-2 flex flex-col gap-3 shadow-sm">
-                  <div className="flex items-center gap-4">
-                    <div className="bg-tertiary/10 w-12 h-12 rounded-full text-tertiary flex items-center justify-center shrink-0">
-                      <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>offline_bolt</span>
-                    </div>
-                    <div>
-                      <h4 className="text-xs text-on-surface-variant font-bold uppercase tracking-wider mb-1">What does offline evaluation say?</h4>
-                      <p className="text-base font-semibold text-on-surface">Offline metrics suggest Model B is better (+11%) but is that actually true?</p>
-                    </div>
-                  </div>
-                  <div className="bg-surface-container-lowest border border-outline-variant/10 rounded-lg p-4 mx-2 sm:mx-16 mt-2">
-                    <p className="text-sm font-medium text-on-surface">Accuracy: Model A = <span className="text-outline">72%</span>, Model B = <span className="text-tertiary font-bold">83%</span></p>
-                    <p className="text-xs text-outline mt-1 italic">Based on held-out test data</p>
-                  </div>
-                  <div className="flex items-center gap-2 mt-2 mx-2 sm:mx-16 border border-error/20 bg-error/5 p-3 rounded-lg">
-                    <span className="material-symbols-outlined text-error/80 text-sm">warning</span>
-                    <p className="text-xs text-error/80 font-bold tracking-wide uppercase">Confidence: Unknown (no real-world validation)</p>
-                  </div>
+                {/* Offline Result Card */}
+                <div className="bg-surface-container border border-outline-variant/10 rounded-xl p-6 shadow-sm flex flex-col items-center justify-center text-center">
+                  <h4 className="text-xs text-on-surface-variant font-bold uppercase tracking-wider mb-2">Offline Result</h4>
+                  <p className="text-lg font-bold text-on-surface">Model B appears <span className="text-tertiary">{offlineImprovement}%</span> better based on test data</p>
+                  <p className="text-xs text-outline mt-1 italic">Not validated on real users</p>
                 </div>
 
                 {/* Start Button */}
-                <button
-                  onClick={handleStart}
-                  className="w-full kinetic-monolith-gradient text-on-primary-container px-8 py-4 rounded-xl font-bold text-lg shadow-lg hover:brightness-110 active:scale-95 transition-all mt-4"
-                >
-                  Run Experiment
-                </button>
+                <div className="mt-8 text-center pt-2">
+                  <button
+                    onClick={handleStart}
+                    className="w-full kinetic-monolith-gradient text-on-primary-container px-8 py-5 rounded-2xl font-bold text-xl shadow-[0_0_40px_rgba(192,193,255,0.1)] hover:brightness-110 active:scale-95 transition-all"
+                  >
+                    Run Experiment
+                  </button>
+                  <p className="text-sm text-outline font-medium mt-4">Simulates real user traffic</p>
+                </div>
               </div>
             </div>
           )}
@@ -334,12 +304,9 @@ export default function DemoPage() {
           {isActive && (
             <div className="text-center mb-8 animate-in fade-in duration-500">
               <div className="inline-flex items-center gap-3 bg-surface-container border border-outline-variant/15 rounded-full px-6 py-2 text-sm shadow-sm">
-                <span className="text-on-surface-variant">Running:</span>
-                <span className="text-on-surface font-semibold">B gets {trafficSplit}% traffic</span>
+                <span className="text-on-surface-variant">Running Real-world Test</span>
                 <span className="text-outline">|</span>
-                <span className="text-on-surface font-semibold">Scenario: {config.label}</span>
-                <span className="text-outline">|</span>
-                <span className="text-on-surface font-semibold">{sampleSize} requests</span>
+                <span className="text-on-surface font-semibold">Offline expectation: +{offlineImprovement}%</span>
               </div>
             </div>
           )}
@@ -352,23 +319,19 @@ export default function DemoPage() {
           )}
 
           {/* ===== RESULTS DASHBOARD ===== */}
-          {isActive && results && !loadingMessage && (
-            <div className="space-y-8 animate-in fade-in duration-500">
+          {isActive && (
+            <div className="space-y-12 animate-in fade-in duration-500">
 
-              {/* Dynamic Narrative / Story Text */}
-              <div className="text-center mb-4">
-                <p className="text-2xl font-bold text-on-surface mb-6">Does this hold in real traffic?</p>
-                {phase === "running" ? (
-                  <div className="flex items-center justify-center gap-3">
-                    <div className="w-2 h-2 rounded-full bg-tertiary animate-pulse shadow-[0_0_10px_#4cd7f6]"></div>
-                    <p className="text-on-surface-variant font-medium text-lg">{getStoryText(progressPct)}</p>
-                    <span className="text-xs text-outline ml-2">Iteration {iteration}/{sampleSize}</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center gap-3 mb-2">
-                    <div className="w-2 h-2 rounded-full bg-primary shadow-[0_0_10px_#c0c1ff]"></div>
-                    <p className="text-on-surface-variant font-medium text-lg">Simulation complete</p>
-                  </div>
+              <div className="text-center pt-4">
+                {phase === "running" && (
+                   <div className="flex items-center justify-center gap-2 text-outline text-sm font-medium">
+                     <div className="w-1.5 h-1.5 rounded-full bg-tertiary animate-pulse"></div>
+                     <span>Simulation in progress...</span>
+                     <span className="ml-2 font-mono">Iteration {iteration}/{sampleSize}</span>
+                   </div>
+                )}
+                {phase === "done" && (
+                   <p className="text-on-surface-variant font-medium">Simulation complete</p>
                 )}
               </div>
 
@@ -376,7 +339,7 @@ export default function DemoPage() {
               {phase === "done" && !userDecision && (
                 <div className="text-center bg-surface-container border border-outline-variant/30 rounded-2xl py-8 px-10 max-w-xl mx-auto shadow-xl animate-in zoom-in-95 duration-500">
                   <h3 className="text-2xl font-bold text-on-surface mb-6">What would you do?</h3>
-                  
+
                   {/* Dumbed Down Decision Guide */}
                   <div className="bg-surface-container-low border border-outline-variant/20 rounded-xl p-5 mb-8 text-left text-sm max-w-md mx-auto shadow-sm">
                     <p className="font-bold text-on-surface mb-3 uppercase tracking-wider text-[11px]">How to decide:</p>
@@ -419,62 +382,68 @@ export default function DemoPage() {
                 </div>
               )}
 
+              {/* Context / Expectations */}
+              <div className="flex flex-col items-center md:items-start bg-surface-container border border-outline-variant/10 rounded-2xl p-5 shadow-sm">
+                <p className="text-sm font-medium text-on-surface-variant mb-1">
+                  Offline expectation: <span className="text-on-surface font-bold">+{offlineImprovement}% improvement</span>
+                </p>
+                <div className="flex items-center gap-2">
+                  <p className="text-lg font-bold text-tertiary">
+                    Expected real-world range: <span className="text-primary">~{((probB - probA) * 100).toFixed(1)}%</span> <span className="text-outline text-sm font-normal">(before noise)</span>
+                  </p>
+                  <div className="group relative flex items-center">
+                    <span className="material-symbols-outlined text-outline text-[16px] cursor-help">info</span>
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-surface-container-highest border border-outline-variant/20 rounded-xl text-xs text-on-surface shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 text-center">
+                      Even if a model is truly better, small improvements may not be detectable due to randomness in real-world data.
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Metrics Section */}
-              <div className="grid md:grid-cols-4 gap-6">
-                <div className="bg-surface-container p-6 rounded-2xl border border-outline-variant/10">
-                  <div className="flex items-center gap-1 mb-2">
-                    <h4 className="text-sm text-on-surface-variant font-medium">Model A Mean</h4>
+              <div className="grid md:grid-cols-4 gap-4">
+                <div className="bg-surface-container p-4 rounded-2xl border border-outline-variant/10">
+                  <div className="flex items-center gap-1 mb-1">
+                    <h4 className="text-[13px] text-on-surface-variant font-medium">Model A Mean</h4>
                     <div className="group relative flex items-center">
-                      <span className="material-symbols-outlined text-outline text-[16px] cursor-help">info</span>
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-3 bg-surface-container-highest border border-outline-variant/20 rounded-xl text-xs text-on-surface shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 text-center">
+                      <span className="material-symbols-outlined text-outline text-[14px] cursor-help">info</span>
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-surface-container-highest border border-outline-variant/20 rounded-xl text-[11px] text-on-surface shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 text-center">
                         Average performance of Model A on real users
                       </div>
                     </div>
                   </div>
-                  <p className="text-2xl font-bold text-on-surface">{results.model_a_mean?.toFixed(4) || "0.0000"}</p>
+                  <p className="text-xl font-bold text-on-surface">{results?.model_a_mean?.toFixed(4) || "0.0000"}</p>
                 </div>
-                <div className="bg-surface-container p-6 rounded-2xl border border-outline-variant/10">
-                  <div className="flex items-center gap-1 mb-2">
-                    <h4 className="text-sm text-on-surface-variant font-medium">Model B Mean</h4>
+                <div className="bg-surface-container p-4 rounded-2xl border border-outline-variant/10">
+                  <div className="flex items-center gap-1 mb-1">
+                    <h4 className="text-[13px] text-on-surface-variant font-medium">Model B Mean</h4>
                     <div className="group relative flex items-center">
-                      <span className="material-symbols-outlined text-outline text-[16px] cursor-help">info</span>
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-3 bg-surface-container-highest border border-outline-variant/20 rounded-xl text-xs text-on-surface shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 text-center">
+                      <span className="material-symbols-outlined text-outline text-[14px] cursor-help">info</span>
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-surface-container-highest border border-outline-variant/20 rounded-xl text-[11px] text-on-surface shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 text-center">
                         Average performance of Model B on real users
                       </div>
                     </div>
                   </div>
-                  <p className="text-2xl font-bold text-on-surface">{results.model_b_mean?.toFixed(4) || "0.0000"}</p>
+                  <p className="text-xl font-bold text-on-surface">{results?.model_b_mean?.toFixed(4) || "0.0000"}</p>
                 </div>
-                <div className="bg-surface-container p-6 rounded-2xl border border-outline-variant/10">
-                  <div className="flex items-center gap-1 mb-2">
-                    <h4 className="text-sm text-on-surface-variant font-medium">Effect Size</h4>
+                <div className="bg-surface-container p-4 rounded-2xl border border-outline-variant/10">
+                  <div className="flex items-center gap-1 mb-1">
+                    <h4 className="text-[13px] text-on-surface-variant font-medium">Observed Improvement</h4>
                     <div className="group relative flex items-center">
-                      <span className="material-symbols-outlined text-outline text-[16px] cursor-help">info</span>
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-3 bg-surface-container-highest border border-outline-variant/20 rounded-xl text-xs text-on-surface shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 text-center">
-                        Effect size shows how much better B is compared to A.
-                        <br/><br/>
-                        <span className="text-tertiary font-bold">Positive</span> = B is better<br/>
-                        <span className="text-error font-bold">Negative</span> = A is better
+                      <span className="material-symbols-outlined text-outline text-[14px] cursor-help">info</span>
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-surface-container-highest border border-outline-variant/20 rounded-xl text-[11px] text-on-surface shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 text-center">
+                        Observed difference between Model B and A
                       </div>
                     </div>
                   </div>
-                  <p className="text-2xl font-bold text-primary">{results.difference > 0 ? "+" : ""}{results.difference?.toFixed(4) || "0.0000"}</p>
+                  <p className="text-xl font-bold text-primary">{results?.difference > 0 ? "+" : ""}{results?.difference?.toFixed(4) || "0.0000"}</p>
                 </div>
-                <div className="bg-surface-container p-6 rounded-2xl border border-outline-variant/10">
-                  <div className="flex items-center gap-1 mb-2">
-                    <h4 className="text-sm text-on-surface-variant font-medium">95% Confidence Interval</h4>
-                    <div className="group relative flex items-center">
-                      <span className="material-symbols-outlined text-outline text-[16px] cursor-help">info</span>
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-3 bg-surface-container-highest border border-outline-variant/20 rounded-xl text-xs text-on-surface shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 text-center">
-                        Range of possible true differences. If it includes 0, the result is not statistically reliable
-                      </div>
-                    </div>
+                <div className="bg-surface-container p-4 rounded-2xl border border-outline-variant/10">
+                  <div className="flex items-center gap-1 mb-1">
+                    <h4 className="text-[13px] text-on-surface-variant font-medium">Confidence Interval</h4>
                   </div>
                   <p className="text-lg font-bold text-on-surface">
-                    [{results.confidence_interval?.[0]?.toFixed(2)}, {results.confidence_interval?.[1]?.toFixed(2)}]
-                  </p>
-                  <p className="text-[11px] text-on-surface-variant mt-3 leading-tight border-t border-outline-variant/10 pt-3">
-                    If this range <span className="text-error font-bold">includes 0</span>, the result is NOT statistically significant.
+                    {results?.confidence_interval ? `[${results.confidence_interval[0]?.toFixed(2)}, ${results.confidence_interval[1]?.toFixed(2)}]` : "..."}
                   </p>
                 </div>
               </div>
@@ -486,8 +455,8 @@ export default function DemoPage() {
                     <h3 className="text-xl font-bold text-on-surface">Model Performance Difference Under Real Traffic</h3>
                   </div>
                   <div className="flex gap-4 text-sm font-medium">
-                    <span className="bg-surface p-2 rounded-lg text-on-surface-variant">Samples A: <span className="text-on-surface">{results.sample_size_a}</span></span>
-                    <span className="bg-surface p-2 rounded-lg text-on-surface-variant">Samples B: <span className="text-on-surface">{results.sample_size_b}</span></span>
+                    <span className="bg-surface p-2 rounded-lg text-on-surface-variant">Samples A: <span className="text-on-surface">{results?.sample_size_a || 0}</span></span>
+                    <span className="bg-surface p-2 rounded-lg text-on-surface-variant">Samples B: <span className="text-on-surface">{results?.sample_size_b || 0}</span></span>
                   </div>
                 </div>
                 <div className="h-80 w-full relative">
@@ -514,22 +483,27 @@ export default function DemoPage() {
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
-                
+
                 {/* Live Chart Interpretation */}
                 <div className="mt-8 text-center animate-in fade-in duration-500">
-                  {results.confidence_interval && (
-                    <div className="inline-block px-8 py-3 bg-surface-container border border-outline-variant/10 rounded-full shadow-sm text-sm font-semibold tracking-wide">
-                      {progressPct < 0.3 
-                        ? <span className="text-outline flex items-center justify-center gap-2"><span className="material-symbols-outlined text-[18px]">query_stats</span> Collecting data — results are noisy</span>
-                        : progressPct < 0.7 && results.confidence_interval[0] <= 0 && results.confidence_interval[1] >= 0
-                        ? <span className="text-on-surface-variant flex items-center justify-center gap-2"><span className="material-symbols-outlined text-[18px]">trending_flat</span> Trend emerging — confidence still low</span>
-                        : results.confidence_interval[0] <= 0 && results.confidence_interval[1] >= 0
-                        ? <span className="text-on-surface flex items-center justify-center gap-2"><span className="material-symbols-outlined text-[18px]">hourglass_empty</span> No clear winner — difference may be due to noise</span>
-                        : results.difference > 0 
-                        ? <span className="text-tertiary flex items-center justify-center gap-2"><span className="material-symbols-outlined text-[18px]">trending_up</span> Model B is outperforming A with confidence</span>
-                        : <span className="text-error flex items-center justify-center gap-2"><span className="material-symbols-outlined text-[18px]">trending_down</span> Model A is outperforming B with confidence</span>}
-                    </div>
-                  )}
+                   <div className="inline-flex items-center gap-3 px-8 py-3 bg-surface-container border border-outline-variant/10 rounded-full shadow-sm text-sm font-semibold">
+                     <span className="text-outline uppercase tracking-wider text-[11px]">Current signal:</span>
+                     {results?.confidence_interval ? (
+                        <>
+                          {progressPct < 0.3
+                            ? <span className="text-on-surface-variant flex items-center gap-2">No clear signal yet</span>
+                            : progressPct < 0.7 && results.confidence_interval[0] <= 0 && results.confidence_interval[1] >= 0
+                              ? <span className="text-on-surface flex items-center gap-2">Signal emerging</span>
+                              : results.confidence_interval[0] > 0
+                                ? <span className="text-tertiary flex items-center gap-2">Model B clearly better</span>
+                                : results.confidence_interval[1] < 0
+                                  ? <span className="text-error flex items-center gap-2">Model A clearly better</span>
+                                  : <span className="text-on-surface flex items-center gap-2">No significant difference</span>}
+                        </>
+                     ) : (
+                        <span className="text-outline italic">Analyzing traffic...</span>
+                     )}
+                   </div>
                 </div>
               </div>
 
@@ -549,7 +523,7 @@ export default function DemoPage() {
                     <div className="text-center mb-12">
                       <h2 className="text-[2rem] font-bold text-on-surface mb-3 tracking-[-0.02em]">How this works in real systems</h2>
                       <p className="text-on-surface-variant max-w-xl mx-auto text-base">
-                        Stop guessing with offline metrics. Integrate continuous A/B testing directly into your ML lifecycle.
+                        Stop guessing with offline metrics. <br />Integrate Krisis directly into your ML lifecycle.
                       </p>
                     </div>
 
@@ -612,14 +586,17 @@ export default function DemoPage() {
                       <button
                         className="kinetic-monolith-gradient text-on-primary-container px-8 py-4 rounded-xl font-bold shadow-lg hover:brightness-110 active:scale-95 transition-all text-sm uppercase tracking-wider w-full sm:w-auto text-center"
                       >
-                        Use Krisis in your pipeline
+                        Get early access
                       </button>
-                      <button
+                      <a
+                        href="https://github.com/le-Affan/krisis"
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="bg-surface border border-outline-variant/30 text-on-surface px-8 py-4 rounded-xl font-bold shadow-sm hover:bg-surface-container-highest active:scale-95 transition-all text-sm uppercase tracking-wider w-full sm:w-auto text-center flex items-center justify-center gap-2"
                       >
                         <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" /></svg>
                         View GitHub
-                      </button>
+                      </a>
                     </div>
                   </div>
 
