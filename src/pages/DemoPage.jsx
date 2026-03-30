@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
@@ -75,7 +76,7 @@ export default function DemoPage() {
   const getConfidenceInfo = (ci) => {
     if (!ci) return { label: "ANALYZING", color: "text-outline" };
     const [low, high] = ci;
-    if (low > 0) return { label: "HIGH", color: "text-tertiary", glow: "shadow-[0_0_20px_rgba(76,215,246,0.15)]" };
+    if (low > 0) return { label: "HIGH", color: "text-tertiary" };
     if (low > -0.02 && high > 0) return { label: "MEDIUM", color: "text-primary" };
     return { label: "LOW", color: "text-error" };
   };
@@ -312,11 +313,11 @@ export default function DemoPage() {
 
           {/* ===== RUNNING CONFIG SUMMARY ===== */}
           {isActive && (
-            <div className="text-center mb-8 mt-10 opacity-90 animate-in fade-in duration-500">
-              <div className="inline-flex items-center gap-3 bg-surface-container border border-outline-variant/15 rounded-full px-6 py-2 text-sm shadow-sm">
-                <span className="text-on-surface-variant">Running Real-world Test</span>
-                <span className="text-outline">|</span>
-                <span className="text-on-surface font-semibold">Offline expectation: +{offlineImprovement}%</span>
+            <div className="text-center mb-12 mt-12 opacity-100 animate-in fade-in duration-500">
+              <div className="inline-flex items-center gap-4 bg-surface-container border border-outline-variant/30 rounded-full px-10 py-4 text-base md:text-lg shadow-lg">
+                <span className="text-on-surface-variant opacity-60 font-medium">Running Real-world Test</span>
+                <span className="text-outline opacity-20">|</span>
+                <span className="text-on-surface">Offline expectation: <span className="font-bold text-primary">+{offlineImprovement}%</span></span>
               </div>
             </div>
           )}
@@ -334,14 +335,17 @@ export default function DemoPage() {
 
               <div className="text-center pt-4">
                 {phase === "running" && (
-                   <div className="flex items-center justify-center gap-2 text-outline text-sm font-medium">
-                     <div className="w-1.5 h-1.5 rounded-full bg-tertiary animate-pulse"></div>
-                     <span>Simulation in progress...</span>
-                     <span className="ml-2 font-mono">Iteration {iteration}/{sampleSize}</span>
-                   </div>
+                  <div className="flex items-center justify-center gap-3 text-on-surface text-base md:text-lg font-bold tracking-wide">
+                    <div className="w-2 h-2 rounded-full bg-tertiary animate-pulse shadow-[0_0_10px_#4cd7f6]"></div>
+                    <span>Simulation in progress...</span>
+                    <span className="ml-2 font-mono opacity-80 decoration-tertiary/30 underline underline-offset-4">Iteration {iteration}/{sampleSize}</span>
+                  </div>
                 )}
                 {phase === "done" && (
-                   <p className="text-on-surface-variant font-medium">Simulation complete</p>
+                  <div className="flex items-center justify-center gap-3 animate-in zoom-in-95 duration-500">
+                    <div className="w-2.5 h-2.5 rounded-full bg-primary shadow-[0_0_15px_#c0c1ff]"></div>
+                    <p className="text-on-surface font-black text-xl md:text-2xl tracking-tight">Simulation complete</p>
+                  </div>
                 )}
               </div>
 
@@ -400,80 +404,68 @@ export default function DemoPage() {
                 </div>
               )}
 
-              {/* Context / Expectations */}
-              <div className="flex flex-col items-center md:items-start bg-surface-container border border-outline-variant/10 rounded-2xl p-5 shadow-sm">
-                <p className="text-sm font-medium text-on-surface-variant mb-1">
-                  Offline expectation: <span className="text-on-surface font-bold">+{offlineImprovement}% improvement</span>
-                </p>
-                <div className="flex items-center gap-2">
-                  <p className="text-lg font-bold text-tertiary">
-                    Expected real-world range: <span className="text-primary">~{((probB - probA) * 100).toFixed(1)}%</span> <span className="text-outline text-sm font-normal">(before noise)</span>
-                  </p>
-                  <div className="group relative flex items-center">
-                    <span className="material-symbols-outlined text-outline text-[16px] cursor-help">info</span>
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-surface-container-highest border border-outline-variant/20 rounded-xl text-xs text-on-surface shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 text-center">
-                      Even if a model is truly better, small improvements may not be detectable due to randomness in real-world data.
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Metrics Section */}
+              {/* Metrics Grid */}
               <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <div className="bg-surface-container p-4 rounded-2xl border border-outline-variant/10">
-                  <div className="flex items-center gap-1 mb-1">
-                    <h4 className="text-[13px] text-on-surface-variant font-medium">Model A Mean</h4>
+                <div className="bg-surface-container p-5 rounded-2xl border border-outline-variant/10 shadow-sm">
+                  <div className="flex items-center gap-1 mb-2">
+                    <h4 className="text-sm text-on-surface-variant font-medium opacity-70">Model A Mean</h4>
                     <div className="group relative flex items-center">
-                      <span className="material-symbols-outlined text-outline text-[14px] cursor-help">info</span>
+                      <span className="material-symbols-outlined text-outline text-[14px] cursor-default">info</span>
                       <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-surface-container-highest border border-outline-variant/20 rounded-xl text-[11px] text-on-surface shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 text-center">
                         Average performance of Model A on real users
                       </div>
                     </div>
                   </div>
-                  <p className="text-xl font-bold text-on-surface">{results?.model_a_mean?.toFixed(4) || "0.0000"}</p>
+                  <p className="text-2xl font-semibold text-on-surface">{results?.model_a_mean?.toFixed(4) || "0.0000"}</p>
                 </div>
-                <div className="bg-surface-container p-4 rounded-2xl border border-outline-variant/10">
-                  <div className="flex items-center gap-1 mb-1">
-                    <h4 className="text-[13px] text-on-surface-variant font-medium">Model B Mean</h4>
+
+                <div className="bg-surface-container p-5 rounded-2xl border border-outline-variant/10 shadow-sm">
+                  <div className="flex items-center gap-1 mb-2">
+                    <h4 className="text-sm text-on-surface-variant font-medium opacity-70">Model B Mean</h4>
                     <div className="group relative flex items-center">
-                      <span className="material-symbols-outlined text-outline text-[14px] cursor-help">info</span>
+                      <span className="material-symbols-outlined text-outline text-[14px] cursor-default">info</span>
                       <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-surface-container-highest border border-outline-variant/20 rounded-xl text-[11px] text-on-surface shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 text-center">
                         Average performance of Model B on real users
                       </div>
                     </div>
                   </div>
-                  <p className="text-xl font-bold text-on-surface">{results?.model_b_mean?.toFixed(4) || "0.0000"}</p>
+                  <p className="text-2xl font-semibold text-on-surface">{results?.model_b_mean?.toFixed(4) || "0.0000"}</p>
                 </div>
-                <div className="bg-surface-container p-4 rounded-2xl border border-outline-variant/10">
-                  <div className="flex items-center gap-1 mb-1">
-                    <h4 className="text-[13px] text-on-surface-variant font-medium">Observed Improvement</h4>
+
+                <div className="bg-surface-container p-5 rounded-2xl border border-outline-variant/10 shadow-sm">
+                  <div className="flex items-center gap-1 mb-2">
+                    <h4 className="text-sm text-on-surface-variant font-medium opacity-70">Observed Improvement</h4>
                     <div className="group relative flex items-center">
-                      <span className="material-symbols-outlined text-outline text-[14px] cursor-help">info</span>
+                      <span className="material-symbols-outlined text-outline text-[14px] cursor-default">info</span>
                       <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-surface-container-highest border border-outline-variant/20 rounded-xl text-[11px] text-on-surface shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 text-center">
                         Observed difference between Model B and A
                       </div>
                     </div>
                   </div>
-                  <p className="text-xl font-bold text-primary">{results?.difference > 0 ? "+" : ""}{results?.difference?.toFixed(4) || "0.0000"}</p>
+                  <p className="text-2xl font-semibold text-primary">{results?.difference > 0 ? "+" : ""}{results?.difference?.toFixed(4) || "0.0000"}</p>
                 </div>
-                <div className="bg-surface-container-high p-4 rounded-2xl border border-primary/20 shadow-[0_0_30px_rgba(192,193,255,0.03)]">
-                  <div className="flex items-center gap-1 mb-1">
-                    <h4 className="text-[13px] text-on-surface-variant font-medium uppercase tracking-tight">Confidence</h4>
-                  </div>
-                  <p className={`text-2xl font-black ${confInfo.color} ${confInfo.glow || ''}`}>{confInfo.label}</p>
-                </div>
-                <div className="bg-surface-container p-4 rounded-2xl border border-outline-variant/10">
-                  <div className="flex items-center gap-1 mb-1">
-                    <h4 className="text-[11px] text-outline font-medium">Confidence Interval</h4>
+
+                <div className="bg-surface-container p-5 rounded-2xl border border-outline-variant/10 shadow-sm">
+                  <div className="flex items-center gap-1 mb-2">
+                    <h4 className="text-sm text-on-surface-variant font-medium opacity-70">95% Confidence Interval</h4>
                     <div className="group relative flex items-center">
-                      <span className="material-symbols-outlined text-outline text-[12px] cursor-help">info</span>
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-surface-container-highest border border-outline-variant/20 rounded-xl text-[10px] text-on-surface shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 text-center">
+                      <span className="material-symbols-outlined text-outline text-[14px] cursor-default">info</span>
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-surface-container-highest border border-outline-variant/20 rounded-xl text-[11px] text-on-surface shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 text-center">
                         Range of possible true improvements. If this range crosses 0, the result is not reliable.
                       </div>
                     </div>
                   </div>
-                  <p className="text-sm font-semibold text-on-surface-variant">
+                  <p className="text-2xl font-semibold text-on-surface">
                     {results?.confidence_interval ? `[${results.confidence_interval[0]?.toFixed(2)}, ${results.confidence_interval[1]?.toFixed(2)}]` : "..."}
+                  </p>
+                </div>
+
+                <div className="bg-surface-container p-5 rounded-2xl border border-outline-variant/10 shadow-sm">
+                  <div className="flex items-center gap-1 mb-2">
+                    <h4 className="text-sm text-on-surface-variant font-medium opacity-70 uppercase tracking-wider">Confidence</h4>
+                  </div>
+                  <p className={`text-2xl font-black ${confInfo.color}`}>
+                    {confInfo.label}
                   </p>
                 </div>
               </div>
@@ -493,8 +485,8 @@ export default function DemoPage() {
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 20 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#464554" vertical={false} opacity={0.3} />
-                      <XAxis dataKey="step" stroke="#908fa0" tick={{ fill: '#908fa0', fontSize: 12 }} label={{ value: 'Number of users (sample size)', position: 'bottom', offset: 0, fill: '#a7b6cc', fontSize: 13 }} />
-                      <YAxis stroke="#908fa0" tick={{ fill: '#908fa0', fontSize: 12 }} domain={['auto', 'auto']} label={{ value: 'Effect size (B - A)', angle: -90, position: 'insideLeft', offset: -5, fill: '#a7b6cc', fontSize: 13, style: { textAnchor: 'middle' } }} />
+                      <XAxis dataKey="step" stroke="#908fa0" tick={{ fill: '#dae2fd', opacity: 0.9, fontSize: 13 }} label={{ value: 'Number of users (sample size)', position: 'bottom', offset: 0, fill: '#dae2fd', opacity: 0.8, fontSize: 14, fontWeight: 600 }} />
+                      <YAxis stroke="#908fa0" tick={{ fill: '#dae2fd', opacity: 0.9, fontSize: 13 }} domain={['auto', 'auto']} label={{ value: 'Effect size (B - A)', angle: -90, position: 'insideLeft', offset: -5, fill: '#dae2fd', opacity: 0.8, fontSize: 14, fontWeight: 600, style: { textAnchor: 'middle' } }} />
                       <Tooltip
                         contentStyle={{ backgroundColor: '#222a3d', borderColor: '#464554', borderRadius: '0.5rem', color: '#dae2fd' }}
                         itemStyle={{ color: '#c0c1ff' }}
@@ -516,24 +508,24 @@ export default function DemoPage() {
 
                 {/* Live Chart Interpretation */}
                 <div className="mt-8 text-center animate-in fade-in duration-500">
-                   <div className="inline-flex items-center gap-3 px-8 py-3 bg-surface-container border border-outline-variant/10 rounded-full shadow-sm text-sm font-semibold">
-                     <span className="text-outline uppercase tracking-wider text-[11px]">Current signal:</span>
-                     {results?.confidence_interval ? (
-                        <>
-                          {progressPct < 0.3
-                            ? <span className="text-on-surface-variant flex items-center gap-2">No clear signal yet</span>
-                            : progressPct < 0.7 && results.confidence_interval[0] <= 0 && results.confidence_interval[1] >= 0
-                              ? <span className="text-on-surface flex items-center gap-2">Signal emerging</span>
-                              : results.confidence_interval[0] > 0
-                                ? <span className="text-tertiary flex items-center gap-2">Model B clearly better</span>
-                                : results.confidence_interval[1] < 0
-                                  ? <span className="text-error flex items-center gap-2">Model A clearly better</span>
-                                  : <span className="text-on-surface flex items-center gap-2">No significant difference</span>}
-                        </>
-                     ) : (
-                        <span className="text-outline italic">Analyzing traffic...</span>
-                     )}
-                   </div>
+                  <div className="inline-flex items-center gap-3 px-8 py-3 bg-surface-container border border-outline-variant/10 rounded-full shadow-sm text-sm font-semibold">
+                    <span className="text-outline uppercase tracking-wider text-[11px]">Current signal:</span>
+                    {results?.confidence_interval ? (
+                      <>
+                        {progressPct < 0.3
+                          ? <span className="text-on-surface-variant flex items-center gap-2">No clear signal yet</span>
+                          : progressPct < 0.7 && results.confidence_interval[0] <= 0 && results.confidence_interval[1] >= 0
+                            ? <span className="text-on-surface flex items-center gap-2">Signal emerging</span>
+                            : results.confidence_interval[0] > 0
+                              ? <span className="text-tertiary flex items-center gap-2">Model B clearly better</span>
+                              : results.confidence_interval[1] < 0
+                                ? <span className="text-error flex items-center gap-2">Model A clearly better</span>
+                                : <span className="text-on-surface flex items-center gap-2">No significant difference</span>}
+                      </>
+                    ) : (
+                      <span className="text-outline italic">Analyzing traffic...</span>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -613,11 +605,12 @@ export default function DemoPage() {
 
                     {/* Final Actions */}
                     <div className="flex flex-col sm:flex-row gap-4 items-center justify-center pt-10 border-t border-outline-variant/10">
-                      <button
-                        className="kinetic-monolith-gradient text-on-primary-container px-8 py-4 rounded-xl font-bold shadow-lg hover:brightness-110 active:scale-95 transition-all text-sm uppercase tracking-wider w-full sm:w-auto text-center"
+                      <Link
+                        to="/waitlist"
+                        className="kinetic-monolith-gradient text-on-primary-container px-10 py-4 rounded-xl font-bold shadow-lg hover:brightness-110 active:scale-95 transition-all text-sm uppercase tracking-wider w-full sm:w-auto text-center"
                       >
                         Get early access
-                      </button>
+                      </Link>
                       <a
                         href="https://github.com/le-Affan/krisis"
                         target="_blank"
