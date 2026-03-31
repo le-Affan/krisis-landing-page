@@ -1,94 +1,119 @@
-import { motion } from 'framer-motion';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 
-const steps = [
+const STEPS = [
   {
-    icon: 'send',
-    step: 'Step 1',
-    title: 'Send request',
-    desc: 'Integrate via SDK or REST API to start the validation cycle.',
+    id: 1,
+    label: 'Route',
+    headline: 'Deterministic Traffic Routing',
+    body: 'Point your endpoint to Krisis. We deterministically split traffic between model versions with zero latency penalty. Users always hit the same variant.',
+    icon: 'call_split'
   },
   {
-    icon: 'alt_route',
-    step: 'Step 2',
-    title: 'Traffic routed',
-    desc: 'Requests are automatically distributed to Model A or B.',
+    id: 2,
+    label: 'Track',
+    headline: 'Persistent Identification',
+    body: 'Every prediction is tagged with a persistent experiment ID. We track the exposure, recording exactly what the model saw and decided at T=0.',
+    icon: 'fingerprint'
   },
   {
-    icon: 'event_note',
-    step: 'Step 3',
-    title: 'Outcomes logged',
-    desc: 'Real-world results are linked back whenever they occur.',
+    id: 3,
+    label: 'Link',
+    headline: 'Delayed Outcome Resolution',
+    body: 'Whether a conversion happens in 5 minutes or a fraud chargeback in 30 days, trace it back. Send the outcome to Krisis, and we merge it with the prediction state.',
+    icon: 'join_inner'
   },
   {
-    icon: 'memory',
-    step: 'Step 4',
-    title: 'Compute evidence',
-    desc: 'Our engine calculates the statistical winner in real-time.',
+    id: 4,
+    label: 'Prove',
+    headline: 'Statistical Certainty',
+    body: 'Stop staring at noisy charts. The Bayesian engine automatically calculates significance, confidence intervals, and effect size. You only get notified when the result is real.',
+    icon: 'verified'
   },
 ];
 
-const containerVariants = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.15 } },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 32 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.65, ease: [0.22, 1, 0.36, 1] } },
-};
-
 export default function HowItWorksSection() {
+  const [active, setActive] = useState(0);
+
   return (
-    <section className="py-32 px-8 bg-surface-container-lowest relative overflow-hidden">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent opacity-50" />
+    <section className="py-32 px-8 bg-transparent relative overflow-hidden" style={{ perspective: 1200 }}>
+      {/* Decorative line */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-px bg-gradient-to-r from-transparent via-slate-700/50 to-transparent" />
+      
+      {/* Subtle background faint radial glow behind section */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[60%] h-[60%] bg-indigo-900/10 blur-[150px] -z-10 rounded-full pointer-events-none" />
 
-      <div className="max-w-7xl mx-auto relative z-10">
-        <motion.h2
-          className="text-3xl font-bold mb-16 text-center"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-60px' }}
-          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-        >
-          Engineered for Engineering Teams
-        </motion.h2>
-
+      <div className="max-w-6xl mx-auto" style={{ transformStyle: 'preserve-3d' }}>
         <motion.div
-          className="flex flex-col md:flex-row items-center justify-between gap-12 relative"
-          variants={containerVariants}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: '-60px' }}
+           className="text-center mb-20"
+           initial={{ opacity: 0, y: 20 }}
+           whileInView={{ opacity: 1, y: 0 }}
+           viewport={{ once: true, margin: '-100px' }}
+           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
         >
-          {/* Connector line desktop */}
-          <div className="hidden md:block absolute top-12 left-[10%] right-[10%] h-[1px] bg-outline-variant/30 -z-0" />
-
-          {steps.map((s) => (
-            <motion.div
-              key={s.icon}
-              variants={itemVariants}
-              className="flex flex-col items-center text-center space-y-6 flex-1 z-10"
-            >
-              <motion.div
-                className="w-24 h-24 rounded-full bg-surface-container-highest border-2 border-primary flex items-center justify-center shadow-[0_0_20px_rgba(192,193,255,0.2)]"
-                whileHover={{
-                  boxShadow: '0 0 35px rgba(192,193,255,0.45)',
-                  scale: 1.06,
-                }}
-                transition={{ type: 'spring', stiffness: 300, damping: 18 }}
-              >
-                <span className="material-symbols-outlined text-3xl text-primary">{s.icon}</span>
-              </motion.div>
-              <div>
-                <span className="text-[0.6875rem] font-bold text-primary mb-2 block uppercase">
-                  {s.step}
-                </span>
-                <h5 className="text-lg font-bold mb-2">{s.title}</h5>
-                <p className="text-xs text-on-surface-variant">{s.desc}</p>
-              </div>
-            </motion.div>
-          ))}
+          <h2 className="text-3xl md:text-4xl font-semibold text-white mb-4">From request to rigor.</h2>
+          <p className="text-slate-400 font-light max-w-2xl mx-auto text-lg">A clean pipeline that isolates variables and surfaces truth.</p>
         </motion.div>
+
+        <div className="grid lg:grid-cols-12 gap-12 lg:gap-16 items-center" style={{ transformStyle: 'preserve-3d' }}>
+          
+          {/* Timeline / Nav (Hover Interactions) */}
+          <div className="lg:col-span-5 flex flex-col gap-3 relative">
+             <div className="absolute left-[25px] top-8 bottom-8 w-px bg-slate-800 -z-10" />
+             {STEPS.map((s, i) => (
+               <div
+                 key={s.id}
+                 onMouseEnter={() => setActive(i)}
+                 className={`text-left flex items-center gap-5 p-4 rounded-xl cursor-default transition-all duration-400 ${
+                   active === i 
+                    ? 'bg-indigo-500/10 border border-indigo-500/20 shadow-[0_0_20px_rgba(99,102,241,0.1)] scale-[1.02]' 
+                    : 'bg-transparent border border-transparent opacity-60 hover:opacity-100 hover:bg-white/[0.02]'
+                 }`}
+               >
+                 <div className={`w-11 h-11 shrink-0 rounded-full flex items-center justify-center border transition-all duration-400 ${active === i ? 'bg-indigo-500/20 border-indigo-400/40 text-indigo-300 shadow-[0_0_15px_rgba(129,140,248,0.3)]' : 'bg-[#0f1425] border-slate-700 text-slate-500'}`}>
+                    <span className="material-symbols-outlined text-[1.2rem]">{s.icon}</span>
+                 </div>
+                 <div>
+                    <p className={`text-[0.9rem] font-semibold uppercase tracking-wider ${active === i ? 'text-indigo-300' : 'text-slate-400'}`}>{s.label}</p>
+                 </div>
+               </div>
+             ))}
+          </div>
+
+          {/* Dynamic Content Panel */}
+          <div className="lg:col-span-7 h-full w-full" style={{ transform: 'translateZ(40px)' }}>
+            <motion.div 
+               className="relative h-full min-h-[360px] rounded-2xl border border-white/10 bg-[#080b16] overflow-hidden flex items-center p-8 lg:p-12 shadow-2xl"
+               style={{ boxShadow: "0 20px 40px -10px rgba(0,0,0,0.5), inset 0 0 40px rgba(99,102,241,0.05)" }}
+               animate={{ y: [0, -8, 0] }}
+               transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+            >
+               {/* Soft inner glow tied to active state */}
+               <div className="absolute top-0 right-0 w-[80%] h-[80%] rounded-full bg-indigo-500/10 blur-[80px] transition-opacity duration-700" />
+               <div className="absolute bottom-0 left-0 w-[60%] h-[60%] rounded-full bg-cyan-500/5 blur-[60px] transition-opacity duration-700" />
+               
+               <AnimatePresence mode="wait">
+                 <motion.div
+                   key={active}
+                   initial={{ opacity: 0, x: 20, filter: 'blur(4px)' }}
+                   animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
+                   exit={{ opacity: 0, x: -20, filter: 'blur(4px)' }}
+                   transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                   className="relative z-10 w-full"
+                 >
+                    <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-400/20 flex items-center justify-center mb-6">
+                      <span className="material-symbols-outlined text-3xl text-indigo-300">{STEPS[active].icon}</span>
+                    </div>
+                    <h3 className="text-[1.65rem] font-medium text-white mb-4 leading-tight">{STEPS[active].headline}</h3>
+                    <p className="text-slate-400 leading-relaxed font-light text-[1.1rem]">
+                      {STEPS[active].body}
+                    </p>
+                 </motion.div>
+               </AnimatePresence>
+            </motion.div>
+          </div>
+
+        </div>
       </div>
     </section>
   );

@@ -1,84 +1,58 @@
 import { useRef } from 'react';
-import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
+import { motion, useSpring, useMotionValue, useTransform } from 'framer-motion';
 
-const CARDS = [
+const OUTCOMES = [
   {
-    icon: 'splitscreen',
-    title: 'Split real traffic',
-    desc: 'Deterministic routing across model variants with zero latency impact.',
+    icon: 'block',
+    outcome: 'Stop shipping silent failures.',
+    desc: 'Models often perform worse in the wild. Catch degradation reliably before it becomes standard behavior.',
   },
   {
-    icon: 'history',
-    title: 'Track outcomes',
-    desc: 'Log predictions and link them to delayed events via persistent IDs.',
+    icon: 'timeline',
+    outcome: 'Bridge the attribution gap.',
+    desc: 'Tie upstream prediction logs to downstream business events weeks later, perfectly matched via experiment IDs.',
   },
   {
-    icon: 'analytics',
-    title: 'Compute effect size',
-    desc: 'Built-in Bayesian engine calculates exactly how much better B is than A.',
+    icon: 'bolt',
+    outcome: 'Reach truth faster.',
+    desc: 'Determine significance rapidly with Bayesian models. Spend less time second-guessing deployments.',
   },
   {
-    icon: 'verified',
-    title: 'Make decisions',
-    desc: 'Automated rollouts based on statistical confidence thresholds.',
+    icon: 'done_all',
+    outcome: 'Ship with absolute certainty.',
+    desc: 'Decouple hope from deployment. Know mathematically that Model B outperforms Baseline.',
   },
 ];
 
-function TiltCard({ icon, title, desc, floatDelay }) {
+function OutcomeCard({ icon, outcome, desc }) {
   const ref = useRef(null);
-
   const rawX = useMotionValue(0);
   const rawY = useMotionValue(0);
+  const springCfg = { stiffness: 150, damping: 20 };
+  const rotateX = useSpring(useTransform(rawY, [-0.5, 0.5], [4, -4]), springCfg);
+  const rotateY = useSpring(useTransform(rawX, [-0.5, 0.5], [-4, 4]), springCfg);
 
-  const springConfig = { stiffness: 180, damping: 22 };
-  const rotateX = useSpring(useTransform(rawY, [-0.5, 0.5], [6, -6]), springConfig);
-  const rotateY = useSpring(useTransform(rawX, [-0.5, 0.5], [-6, 6]), springConfig);
-
-  const handleMouseMove = (e) => {
-    const rect = ref.current.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width - 0.5;
-    const y = (e.clientY - rect.top) / rect.height - 0.5;
-    rawX.set(x);
-    rawY.set(y);
+  const onMove = (e) => {
+    const r = ref.current.getBoundingClientRect();
+    rawX.set((e.clientX - r.left) / r.width - 0.5);
+    rawY.set((e.clientY - r.top) / r.height - 0.5);
   };
-
-  const handleMouseLeave = () => {
-    rawX.set(0);
-    rawY.set(0);
-  };
+  const onLeave = () => { rawX.set(0); rawY.set(0); };
 
   return (
     <motion.div
       ref={ref}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      style={{
-        rotateX,
-        rotateY,
-        transformStyle: 'preserve-3d',
-        perspective: 800,
-      }}
-      /* Idle float */
-      animate={{ y: [0, -6, 0] }}
-      transition={{
-        duration: 4,
-        repeat: Infinity,
-        ease: 'easeInOut',
-        delay: floatDelay,
-      }}
-      whileHover={{
-        y: -14,
-        boxShadow: '0 20px 50px rgba(192,193,255,0.18)',
-        borderColor: 'rgba(192,193,255,0.35)',
-        transition: { type: 'spring', stiffness: 260, damping: 18 },
-      }}
-      whileTap={{ scale: 0.97 }}
-      className="bg-surface-container p-8 rounded-2xl border border-outline-variant/10 flex flex-col justify-between h-64 cursor-default"
+      onMouseMove={onMove}
+      onMouseLeave={onLeave}
+      style={{ rotateX, rotateY, transformStyle: 'preserve-3d' }}
+      whileHover={{ scale: 1.02 }}
+      className="group relative bg-[#090d1a] border border-white/5 hover:border-indigo-500/30 rounded-2xl p-8 transition-all duration-500"
     >
-      <span className="material-symbols-outlined text-tertiary text-3xl">{icon}</span>
-      <div>
-        <h4 className="font-bold mb-2">{title}</h4>
-        <p className="text-xs text-on-surface-variant">{desc}</p>
+      <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/0 to-cyan-500/0 group-hover:from-indigo-500/5 group-hover:to-cyan-500/5 rounded-2xl transition-all duration-500 pointer-events-none" />
+      <div style={{ transform: 'translateZ(20px)' }}>
+        <span className="material-symbols-outlined text-indigo-400/80 mb-5 text-[1.75rem]">{icon}</span>
+        <h4 className="text-lg font-medium text-slate-100 mb-3 leading-snug">{outcome}</h4>
+        <p className="text-sm text-slate-400 font-light leading-relaxed">{desc}</p>
       </div>
     </motion.div>
   );
@@ -86,44 +60,32 @@ function TiltCard({ icon, title, desc, floatDelay }) {
 
 const sectionVariants = {
   hidden: {},
-  visible: { transition: { staggerChildren: 0.12 } },
+  visible: { transition: { staggerChildren: 0.1 } },
 };
-
 const cardEntry = {
-  hidden: { opacity: 0, y: 30 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] } },
+  hidden: { opacity: 0, y: 25 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] } },
 };
 
 export default function SolutionSection() {
   return (
-    <section className="py-32 px-8 bg-surface">
-      <div className="max-w-7xl mx-auto">
-        <motion.div
-          className="text-center mb-20"
-          initial={{ opacity: 0, y: 24 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-80px' }}
-          transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
-        >
-          <h2 className="text-[2rem] font-semibold text-on-surface mb-4">
-            The Infrastructure for Truth
-          </h2>
-          <p className="text-on-surface-variant max-w-2xl mx-auto">
-            Krisis provides a unified shell for routing and analyzing model performance based on what
-            actually happened, not what you predicted.
-          </p>
-        </motion.div>
+    <section className="py-24 px-8 bg-[#040812] relative overflow-hidden" style={{ perspective: 1000 }}>
+       {/* Separator line */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-px bg-gradient-to-r from-transparent via-indigo-900/40 to-transparent" />
 
+      <div className="max-w-7xl mx-auto" style={{ transformStyle: 'preserve-3d', transform: 'translateZ(10px)' }}>
+        
         <motion.div
-          className="grid lg:grid-cols-4 gap-6"
+          className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6"
           variants={sectionVariants}
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true, margin: '-60px' }}
+          viewport={{ once: true, margin: '-50px' }}
+          style={{ transformStyle: 'preserve-3d' }}
         >
-          {CARDS.map((card, i) => (
-            <motion.div key={card.icon} variants={cardEntry}>
-              <TiltCard {...card} floatDelay={i * 0.6} />
+          {OUTCOMES.map((o) => (
+            <motion.div key={o.icon} variants={cardEntry} style={{ transformStyle: 'preserve-3d' }}>
+              <OutcomeCard {...o} />
             </motion.div>
           ))}
         </motion.div>

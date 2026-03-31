@@ -6,32 +6,33 @@ export default function Navbar() {
 
   return (
     <motion.nav
-      className="fixed top-0 w-full z-50 bg-[#0b1326]/40 backdrop-blur-xl shadow-[0_40px_40px_-15px_rgba(218,226,253,0.08)]"
+      className="fixed top-0 w-full z-50 bg-[#050a15]/60 backdrop-blur-xl border-b border-indigo-500/10"
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
     >
       <div className="flex justify-between items-center max-w-7xl mx-auto px-8 h-20">
         <div className="flex items-center gap-10">
-          <span className="text-4xl font-bold tracking-tighter text-[#dae2fd]">Krisis</span>
-        </div>
-        <div className="flex items-center gap-4">
-          <motion.button
-            className="text-[#dae2fd]/70 hover:text-[#dae2fd] text-sm font-medium"
-            whileHover={{ color: '#dae2fd' }}
-            transition={{ duration: 0.2 }}
+          <motion.div 
+            className="relative cursor-pointer group"
+            whileHover={{ scale: 1.02 }}
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
           >
-            Sign In
-          </motion.button>
+            {/* Deeper logo glow on hover */}
+            <div className="absolute inset-0 bg-indigo-500/0 group-hover:bg-indigo-400/30 blur-2xl rounded-full transition-all duration-500" />
+            <span className="relative text-[1.95rem] font-bold tracking-tighter text-white drop-shadow-md">Krisis</span>
+          </motion.div>
+        </div>
+        
+        <div className="flex items-center gap-6">
+          <a href="#" className="hidden sm:block text-slate-300 hover:text-white transition-colors text-sm font-medium tracking-wide">Docs</a>
+          
+          <div className="hidden sm:block w-px h-5 bg-slate-700/60" /> {/* Subtle Divider */}
+          
           <motion.button
             onClick={() => navigate('/demo')}
-            className="kinetic-monolith-gradient text-[#0d0096] px-5 py-2 rounded-xl text-sm font-bold"
-            whileHover={{
-              scale: 1.06,
-              boxShadow: '0 0 22px rgba(192,193,255,0.4)',
-            }}
-            whileTap={{ scale: 0.94 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+            className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-xl text-sm font-medium shadow-[0_0_15px_rgba(79,70,229,0.2)] hover:shadow-[0_0_25px_rgba(79,70,229,0.4)] transition-all duration-300"
+            whileTap={{ scale: 0.95 }}
           >
             Try Live Demo
           </motion.button>
