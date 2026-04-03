@@ -395,7 +395,7 @@ export default function DemoPage() {
                       </div>
                     </div>
                   </div>
-                  <p className="text-2xl font-semibold text-on-surface">{results?.model_a_mean?.toFixed(4) || "0.0000"}</p>
+                  <p className="text-2xl font-semibold text-on-surface">{results?.model_a_mean !== undefined ? (results.model_a_mean * 100).toFixed(1) + "%" : "0.0%"}</p>
                 </div>
 
                 <div className="bg-surface-container p-5 rounded-2xl border border-outline-variant/10 shadow-sm">
@@ -408,7 +408,7 @@ export default function DemoPage() {
                       </div>
                     </div>
                   </div>
-                  <p className="text-2xl font-semibold text-on-surface">{results?.model_b_mean?.toFixed(4) || "0.0000"}</p>
+                  <p className="text-2xl font-semibold text-on-surface">{results?.model_b_mean !== undefined ? (results.model_b_mean * 100).toFixed(1) + "%" : "0.0%"}</p>
                 </div>
 
                 <div className="bg-surface-container p-5 rounded-2xl border border-outline-variant/10 shadow-sm">
@@ -421,7 +421,7 @@ export default function DemoPage() {
                       </div>
                     </div>
                   </div>
-                  <p className="text-2xl font-semibold text-primary">{results?.difference > 0 ? "+" : ""}{results?.difference?.toFixed(4) || "0.0000"}</p>
+                  <p className="text-2xl font-semibold text-primary">{results?.difference > 0 ? "+" : ""}{results?.difference !== undefined ? (results.difference * 100).toFixed(1) + "%" : "0.0%"}</p>
                 </div>
 
                 <div className="bg-surface-container p-5 rounded-2xl border border-outline-variant/10 shadow-sm">
