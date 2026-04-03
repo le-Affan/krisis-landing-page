@@ -116,14 +116,24 @@ export default function DemoPage() {
 
     const runSimulationLoop = () => {
       setLoadingMessage("");
+      
+      const durationMs = 30000; // 30 seconds
+      let startTime = null;
 
-      const processStepFrame = () => {
+      const processStepFrame = (timestamp) => {
         if (!activeRef.current) return;
         
-        let newItems = [];
-        const batchSize = Math.max(1, Math.floor(sampleSize / 100)); // Smooth 100 frames (~1.6 seconds)
+        if (!startTime) startTime = timestamp;
+        const elapsed = timestamp - startTime;
         
-        for (let i = 0; i < batchSize && iter < sampleSize; i++) {
+        // Time-based target iteration
+        let targetIter = Math.floor((elapsed / durationMs) * sampleSize);
+        if (targetIter > sampleSize) targetIter = sampleSize;
+        
+        let newItems = [];
+        
+        // Process iterations up to the calculated target
+        while (iter < targetIter) {
           iter++;
           
           const isModelB = Math.random() < (trafficSplit / 100.0);
@@ -147,32 +157,34 @@ export default function DemoPage() {
           }
         }
         
-        const meanA = localCountA > 0 ? localSumA / localCountA : 0;
-        const meanB = localCountB > 0 ? localSumB / localCountB : 0;
-        const diff = meanB - meanA;
-        
-        let ci = null;
-        if (localCountA > 10 && localCountB > 10) {
-           const seA = (meanA * (1 - meanA)) / localCountA;
-           const seB = (meanB * (1 - meanB)) / localCountB;
-           const seDiff = Math.sqrt(seA + seB);
-           ci = [diff - 1.96 * seDiff, diff + 1.96 * seDiff];
-        }
+        if (newItems.length > 0 || targetIter === sampleSize) {
+          const meanA = localCountA > 0 ? localSumA / localCountA : 0;
+          const meanB = localCountB > 0 ? localSumB / localCountB : 0;
+          const diff = meanB - meanA;
+          
+          let ci = null;
+          if (localCountA > 10 && localCountB > 10) {
+             const seA = (meanA * (1 - meanA)) / localCountA;
+             const seB = (meanB * (1 - meanB)) / localCountB;
+             const seDiff = Math.sqrt(seA + seB);
+             ci = [diff - 1.96 * seDiff, diff + 1.96 * seDiff];
+          }
 
-        setIteration(iter);
-        
-        if (newItems.length > 0) {
-           setChartData(prev => [...prev, ...newItems]);
+          setIteration(iter);
+          
+          if (newItems.length > 0) {
+             setChartData(prev => [...prev, ...newItems]);
+          }
+          
+          setResults({
+             difference: diff,
+             model_a_mean: meanA,
+             model_b_mean: meanB,
+             sample_size_a: localCountA,
+             sample_size_b: localCountB,
+             confidence_interval: ci
+          });
         }
-        
-        setResults({
-           difference: diff,
-           model_a_mean: meanA,
-           model_b_mean: meanB,
-           sample_size_a: localCountA,
-           sample_size_b: localCountB,
-           confidence_interval: ci
-        });
 
         if (iter < sampleSize) {
           requestAnimationFrame(processStepFrame);
