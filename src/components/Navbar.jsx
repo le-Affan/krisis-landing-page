@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
 export default function Navbar() {
@@ -25,7 +25,7 @@ export default function Navbar() {
         </div>
         
         <div className="flex items-center gap-6">
-          <a href="#" className="hidden sm:block text-slate-300 hover:text-white transition-colors text-sm font-medium tracking-wide">Docs</a>
+          <Link to="/docs" className="hidden sm:block text-slate-300 hover:text-white transition-colors text-sm font-medium tracking-wide">Docs</Link>
           
           <div className="hidden sm:block w-px h-5 bg-slate-700/60" /> {/* Subtle Divider */}
           
