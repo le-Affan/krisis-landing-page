@@ -152,9 +152,7 @@ export default function DemoPage() {
           const meanB = localCountB > 0 ? localSumB / localCountB : 0;
           const diff = meanB - meanA;
           
-          if (iter % 5 === 0 || iter === sampleSize) {
-            newItems.push({ step: iter, value: diff });
-          }
+          newItems.push({ step: iter, value: diff });
         }
         
         if (newItems.length > 0 || targetIter === sampleSize) {
