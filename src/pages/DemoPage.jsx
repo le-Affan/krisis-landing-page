@@ -4,7 +4,7 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 
-const BASE_URL = "http://localhost:8000";
+const BASE_URL = "https://krisis.onrender.com";
 
 
 
@@ -62,6 +62,7 @@ export default function DemoPage() {
 
   // --- Simulation state ---
   const [loadingMessage, setLoadingMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
   const [results, setResults] = useState(null);
   const [chartData, setChartData] = useState([]);
   const [iteration, setIteration] = useState(0);
@@ -122,7 +123,7 @@ export default function DemoPage() {
       setLoadingMessage("Initializing experiment on backend...");
 
       try {
-        await fetch(`${BASE_URL}/api/v1/experiments`, {
+        const createRes = await fetch(`${BASE_URL}/api/v1/experiments`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -132,13 +133,27 @@ export default function DemoPage() {
             probability_split: trafficSplit / 100.0
           })
         });
+        if (!createRes.ok) throw new Error("Failed to initialize experiment");
       } catch (e) {
-        console.error("Failed to create experiment mapping. Continuing anyway...", e);
+        console.error("Failed to create experiment mapping:", e);
+        setErrorMessage("Could not connect to the Krisis backend. Please ensure the server is running.");
+        setPhase("setup");
+        setLoadingMessage("");
+        return;
       }
 
       setLoadingMessage("");
 
-      while (activeRef.current && iter < sampleSize) {
+      const processStep = async () => {
+        if (!activeRef.current) return;
+        
+        if (iter >= sampleSize) {
+          if (activeRef.current) {
+            setPhase("done");
+          }
+          return;
+        }
+
         iter++;
         setIteration(iter);
         try {
@@ -155,20 +170,14 @@ export default function DemoPage() {
           const predictData = await predictRes.json();
           const requestId = predictData.request_id;
 
-          console.log("Predict response:", predictData);
-
-          // Robustly parse the model variant since backend keys may vary
           const variantObj = predictData.model_variant || predictData.model_id || predictData.variant || "a";
           const variantStr = String(variantObj).toLowerCase();
 
           const isModelB = variantStr.includes('b') || variantStr.includes('treatment');
-          console.log("Detected variant:", variantStr, "isModelB:", isModelB);
 
           const probability = isModelB ? probB : probA;
-          console.log("Using probability:", probability);
 
           const outcomeValue = Math.random() < probability ? 1 : 0;
-          console.log("Generated outcome:", outcomeValue);
 
           if (isModelB) {
             localCountB++;
@@ -209,23 +218,22 @@ export default function DemoPage() {
 
             if (iter === sampleSize) {
               console.log("--- SIMULATION FINISHED ---");
-              console.log("sample_size_a:", resultsData.sample_size_a);
-              console.log("sample_size_b:", resultsData.sample_size_b);
               console.log("final CI:", resultsData.confidence_interval);
             }
           }
 
         } catch (error) {
           console.error("API request failed during simulation loop:", error);
+          setErrorMessage("Simulation interrupted: Lost connection to the Krisis backend.");
+          setPhase("setup");
+          return;
         }
 
         const finalDelay = 18000 / sampleSize;
-        await new Promise(resolve => setTimeout(resolve, finalDelay));
-      }
+        setTimeout(processStep, finalDelay);
+      };
 
-      if (activeRef.current) {
-        setPhase("done");
-      }
+      processStep();
     };
 
     runSimulationLoop();
@@ -240,6 +248,7 @@ export default function DemoPage() {
     setChartData([]);
     setIteration(0);
     setLoadingMessage("");
+    setErrorMessage("");
     setUserDecision(null);
     setPhase("running");
   };
@@ -259,6 +268,16 @@ export default function DemoPage() {
             <div className="text-center mb-12">
               <h1 className="text-[3rem] font-bold tracking-[-0.03em] text-on-surface">Krisis in Action!</h1>
               <p className="text-xl text-primary font-semibold mb-3">Test if offline improvements hold in real traffic</p>
+            </div>
+          )}
+
+          {/* Error Message */}
+          {errorMessage && (
+            <div className="max-w-2xl mx-auto mb-8 animate-in fade-in zoom-in-95 duration-500">
+               <div className="bg-error/10 border border-error/20 text-error px-6 py-4 rounded-xl flex items-center gap-3">
+                 <span className="material-symbols-outlined text-[20px]">error_outline</span>
+                 <span className="font-medium text-sm">{errorMessage}</span>
+               </div>
             </div>
           )}
 
@@ -483,7 +502,7 @@ export default function DemoPage() {
                 </div>
                 <div className="h-80 w-full relative">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 20 }}>
+                    <LineChart key={`chart-${chartData.length}`} data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 20 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#464554" vertical={false} opacity={0.3} />
                       <XAxis dataKey="step" stroke="#908fa0" tick={{ fill: '#dae2fd', opacity: 0.9, fontSize: 13 }} label={{ value: 'Number of users (sample size)', position: 'bottom', offset: 0, fill: '#dae2fd', opacity: 0.8, fontSize: 14, fontWeight: 600 }} />
                       <YAxis stroke="#908fa0" tick={{ fill: '#dae2fd', opacity: 0.9, fontSize: 13 }} domain={['auto', 'auto']} label={{ value: 'Effect size (B - A)', angle: -90, position: 'insideLeft', offset: -5, fill: '#dae2fd', opacity: 0.8, fontSize: 14, fontWeight: 600, style: { textAnchor: 'middle' } }} />
@@ -494,6 +513,7 @@ export default function DemoPage() {
                       />
                       <ReferenceLine y={0} stroke="#464554" strokeDasharray="4 4" label={{ position: 'insideBottomRight', value: 'No difference', fill: '#908fa0', fontSize: 12 }} />
                       <Line
+                        isAnimationActive={false}
                         type="monotone"
                         dataKey="value"
                         name="Effect Size (Difference)"
