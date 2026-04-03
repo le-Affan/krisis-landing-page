@@ -161,19 +161,11 @@ export default function DemoPage() {
           const diff = meanB - meanA;
           
           let ci = null;
-          let prob_b_better = undefined;
           if (localCountA > 10 && localCountB > 10) {
              const seA = (meanA * (1 - meanA)) / localCountA;
              const seB = (meanB * (1 - meanB)) / localCountB;
              const seDiff = Math.sqrt(seA + seB);
              ci = [diff - 1.96 * seDiff, diff + 1.96 * seDiff];
-             
-             if (seDiff > 0) {
-               const z = diff / seDiff;
-               prob_b_better = 0.5 * (1 + Math.tanh(0.79788 * (z + 0.04417 * z * z * z)));
-             } else {
-               prob_b_better = diff > 0 ? 1 : 0;
-             }
           }
 
           setIteration(iter);
@@ -188,8 +180,7 @@ export default function DemoPage() {
              model_b_mean: meanB,
              sample_size_a: localCountA,
              sample_size_b: localCountB,
-             confidence_interval: ci,
-             prob_b_better: prob_b_better
+             confidence_interval: ci
           });
         }
 
@@ -433,22 +424,17 @@ export default function DemoPage() {
 
                 <div className="bg-surface-container p-5 rounded-2xl border border-outline-variant/10 shadow-sm">
                   <div className="flex items-center gap-1 mb-2">
-                    <h4 className="text-sm text-on-surface-variant font-medium opacity-70">Model B Win Prob.</h4>
-                    <div className="group relative flex items-center pr-2">
+                    <h4 className="text-sm text-on-surface-variant font-medium opacity-70">95% Confidence Interval</h4>
+                    <div className="group relative flex items-center">
                       <span className="material-symbols-outlined text-outline text-[14px] cursor-default">info</span>
                       <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-surface-container-highest border border-outline-variant/20 rounded-xl text-[11px] text-on-surface shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 text-center">
-                        Probability that Model B performs better than Model A (derived from statistical Z-score).
+                        Range of possible true improvements. If this range crosses 0, the result is not reliable.
                       </div>
                     </div>
                   </div>
                   <p className="text-2xl font-semibold text-on-surface">
-                    {results?.prob_b_better !== undefined ? (results.prob_b_better * 100).toFixed(1) + "%" : "..."}
+                    {results?.confidence_interval ? `[${(results.confidence_interval[0] * 100).toFixed(1)}%, ${(results.confidence_interval[1] * 100).toFixed(1)}%]` : "..."}
                   </p>
-                  {results?.confidence_interval && (
-                    <p className="text-[10px] text-outline mt-1 font-mono">
-                      CI: [{results.confidence_interval[0].toFixed(2)}, {results.confidence_interval[1].toFixed(2)}]
-                    </p>
-                  )}
                 </div>
 
                 <div className="bg-surface-container p-5 rounded-2xl border border-outline-variant/10 shadow-sm">
