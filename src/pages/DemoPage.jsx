@@ -114,71 +114,22 @@ export default function DemoPage() {
     const expId = `exp_${Date.now()}`;
     setCurrentExpId(expId);
 
-    const runSimulationLoop = async () => {
-      console.log("--- EXPERIMENT STARTED ---");
-      console.log("Offline Improvement:", offlineImprovement + "%");
-      console.log("Assigned probA:", probA);
-      console.log("Assigned probB:", probB);
-
-      setLoadingMessage("Initializing experiment on backend...");
-
-      try {
-        const createRes = await fetch(`${BASE_URL}/api/v1/experiments`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            experiment_id: expId,
-            model_a_id: "model_a",
-            model_b_id: "model_b",
-            probability_split: trafficSplit / 100.0
-          })
-        });
-        if (!createRes.ok) throw new Error("Failed to initialize experiment");
-      } catch (e) {
-        console.error("Failed to create experiment mapping:", e);
-        setErrorMessage("Could not connect to the Krisis backend. Please ensure the server is running.");
-        setPhase("setup");
-        setLoadingMessage("");
-        return;
-      }
-
+    const runSimulationLoop = () => {
       setLoadingMessage("");
 
-      const processStep = async () => {
+      const processStepFrame = () => {
         if (!activeRef.current) return;
         
-        if (iter >= sampleSize) {
-          if (activeRef.current) {
-            setPhase("done");
-          }
-          return;
-        }
-
-        iter++;
-        setIteration(iter);
-        try {
-          const predictRes = await fetch(`${BASE_URL}/api/v1/predict`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              experiment_id: expId,
-              features: { x: iter }
-            })
-          });
-
-          if (!predictRes.ok) throw new Error(`Predict API failed with status ${predictRes.status}`);
-          const predictData = await predictRes.json();
-          const requestId = predictData.request_id;
-
-          const variantObj = predictData.model_variant || predictData.model_id || predictData.variant || "a";
-          const variantStr = String(variantObj).toLowerCase();
-
-          const isModelB = variantStr.includes('b') || variantStr.includes('treatment');
-
+        let newItems = [];
+        const batchSize = Math.max(1, Math.floor(sampleSize / 100)); // Smooth 100 frames (~1.6 seconds)
+        
+        for (let i = 0; i < batchSize && iter < sampleSize; i++) {
+          iter++;
+          
+          const isModelB = Math.random() < (trafficSplit / 100.0);
           const probability = isModelB ? probB : probA;
-
           const outcomeValue = Math.random() < probability ? 1 : 0;
-
+          
           if (isModelB) {
             localCountB++;
             localSumB += outcomeValue;
@@ -186,54 +137,51 @@ export default function DemoPage() {
             localCountA++;
             localSumA += outcomeValue;
           }
-
+          
           const meanA = localCountA > 0 ? localSumA / localCountA : 0;
           const meanB = localCountB > 0 ? localSumB / localCountB : 0;
-          const localDiff = meanB - meanA;
-
+          const diff = meanB - meanA;
+          
           if (iter % 5 === 0 || iter === sampleSize) {
-            setChartData(prev => [...prev, { step: iter, value: localDiff }]);
+            newItems.push({ step: iter, value: diff });
           }
-
-          if (requestId) {
-            const outcomeRes = await fetch(`${BASE_URL}/api/v1/outcomes`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                request_id: requestId,
-                value: outcomeValue
-              })
-            });
-            if (!outcomeRes.ok) throw new Error(`Outcome API failed with status ${outcomeRes.status}`);
-          }
-
-          const resultsRes = await fetch(`${BASE_URL}/api/v1/experiments/${expId}/results`, {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' }
-          });
-
-          if (resultsRes.ok) {
-            const resultsData = await resultsRes.json();
-            setResults(resultsData);
-
-            if (iter === sampleSize) {
-              console.log("--- SIMULATION FINISHED ---");
-              console.log("final CI:", resultsData.confidence_interval);
-            }
-          }
-
-        } catch (error) {
-          console.error("API request failed during simulation loop:", error);
-          setErrorMessage("Simulation interrupted: Lost connection to the Krisis backend.");
-          setPhase("setup");
-          return;
+        }
+        
+        const meanA = localCountA > 0 ? localSumA / localCountA : 0;
+        const meanB = localCountB > 0 ? localSumB / localCountB : 0;
+        const diff = meanB - meanA;
+        
+        let ci = null;
+        if (localCountA > 10 && localCountB > 10) {
+           const seA = (meanA * (1 - meanA)) / localCountA;
+           const seB = (meanB * (1 - meanB)) / localCountB;
+           const seDiff = Math.sqrt(seA + seB);
+           ci = [diff - 1.96 * seDiff, diff + 1.96 * seDiff];
         }
 
-        const finalDelay = 18000 / sampleSize;
-        setTimeout(processStep, finalDelay);
+        setIteration(iter);
+        
+        if (newItems.length > 0) {
+           setChartData(prev => [...prev, ...newItems]);
+        }
+        
+        setResults({
+           difference: diff,
+           model_a_mean: meanA,
+           model_b_mean: meanB,
+           sample_size_a: localCountA,
+           sample_size_b: localCountB,
+           confidence_interval: ci
+        });
+
+        if (iter < sampleSize) {
+          requestAnimationFrame(processStepFrame);
+        } else {
+          setPhase("done");
+        }
       };
 
-      processStep();
+      requestAnimationFrame(processStepFrame);
     };
 
     runSimulationLoop();
